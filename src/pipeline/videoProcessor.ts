@@ -34,6 +34,8 @@ export type ProcessVideoOptions = {
 export type ProcessVideoResult = {
   blob: Blob;
   fileName: string;
+  /** `true` si une piste audio source existait mais n'a pas pu être copiée (codec inconnu, par ex.). */
+  audioDropped: boolean;
 };
 
 const MINIMUM_OUTPUT_BITRATE = 20_000_000;
@@ -50,75 +52,97 @@ export async function processVideo(options: ProcessVideoOptions): Promise<Proces
   const support = await checkVideoTrackSupport(videoTrack);
   if (!support.supported) throw new UnsupportedVideoError(support.message);
 
-  const audioTrack = await input.getPrimaryAudioTrack();
+  let frameProcessor: FrameProcessor | undefined;
+  let output: Output | undefined;
 
-  const target = new BufferTarget();
-  const output = new Output({ format: new Mp4OutputFormat(), target });
+  try {
+    const audioTrack = await input.getPrimaryAudioTrack();
 
-  const sourceBitrate = (await videoTrack.getAverageBitrate()) ?? (await videoTrack.getBitrate()) ?? MINIMUM_OUTPUT_BITRATE;
-  const targetBitrate = Math.max(sourceBitrate * BITRATE_HEADROOM, MINIMUM_OUTPUT_BITRATE);
+    const target = new BufferTarget();
+    output = new Output({ format: new Mp4OutputFormat(), target });
 
-  const videoSource = new VideoSampleSource({
-    codec: 'avc',
-    quality: new Quality({ bitrate: targetBitrate, bitrateMode: 'variable' }),
-  });
-  output.addVideoTrack(videoSource, { rotation: await videoTrack.getRotation() });
+    const sourceBitrate = (await videoTrack.getAverageBitrate()) ?? (await videoTrack.getBitrate()) ?? MINIMUM_OUTPUT_BITRATE;
+    const targetBitrate = Math.max(sourceBitrate * BITRATE_HEADROOM, MINIMUM_OUTPUT_BITRATE);
 
-  let audioPacketSource: EncodedAudioPacketSource | null = null;
-  let audioDone: Promise<void> = Promise.resolve();
-  if (audioTrack) {
-    const audioCodec = await audioTrack.getCodec();
-    if (audioCodec) {
-      audioPacketSource = new EncodedAudioPacketSource(audioCodec);
-      output.addAudioTrack(audioPacketSource);
-      audioDone = copyAudioPackets(audioTrack, new EncodedPacketSink(audioTrack), audioPacketSource);
+    const videoSource = new VideoSampleSource({
+      codec: 'avc',
+      quality: new Quality({ bitrate: targetBitrate, bitrateMode: 'variable' }),
+    });
+    output.addVideoTrack(videoSource, { rotation: await videoTrack.getRotation() });
+
+    let audioPacketSource: EncodedAudioPacketSource | null = null;
+    let audioDone: Promise<void> = Promise.resolve();
+    let audioDropped = false;
+    if (audioTrack) {
+      const audioCodec = await audioTrack.getCodec();
+      if (audioCodec) {
+        audioPacketSource = new EncodedAudioPacketSource(audioCodec);
+        output.addAudioTrack(audioPacketSource);
+        audioDone = copyAudioPackets(audioTrack, new EncodedPacketSink(audioTrack), audioPacketSource);
+      } else {
+        audioDropped = true;
+        console.warn(`Piste audio ignorée : codec non reconnu pour "${file.name}".`);
+      }
     }
+
+    await output.start();
+
+    const width = await videoTrack.getCodedWidth();
+    const height = await videoTrack.getCodedHeight();
+    frameProcessor = new FrameProcessor(width, height);
+    frameProcessor.setLut(lut);
+
+    const videoSampleSink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'prefer-hardware' });
+    const stats = await videoTrack.computePacketStats(200);
+    const duration = await input.computeDuration();
+    const estimatedTotalFrames = Math.round(stats.averagePacketRate * duration);
+
+    let processedFrames = 0;
+    for await (const sample of videoSampleSink.samples()) {
+      try {
+        await frameProcessor.process(sample);
+
+        const outputSample = new VideoSample(frameProcessor.outputCanvas, {
+          timestamp: sample.timestamp,
+          duration: sample.duration,
+          colorSpace: { primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: false },
+        });
+        try {
+          await videoSource.add(outputSample);
+        } finally {
+          outputSample.close();
+        }
+      } finally {
+        sample.close();
+      }
+
+      processedFrames++;
+      onProgress?.({
+        processedFrames,
+        totalFrames: Number.isFinite(estimatedTotalFrames) && estimatedTotalFrames > 0 ? estimatedTotalFrames : null,
+      });
+    }
+
+    videoSource.close();
+    await audioDone;
+    audioPacketSource?.close();
+
+    await output.finalize();
+
+    if (!target.buffer) throw new Error("La sortie n'a pas pu être générée.");
+
+    return {
+      blob: new Blob([target.buffer], { type: 'video/mp4' }),
+      fileName: buildOutputFileName(file.name),
+      audioDropped,
+    };
+  } catch (error) {
+    await output?.cancel().catch(() => {});
+    throw error;
+  } finally {
+    frameProcessor?.dispose();
+    input.dispose();
   }
-
-  await output.start();
-
-  const width = await videoTrack.getCodedWidth();
-  const height = await videoTrack.getCodedHeight();
-  const frameProcessor = new FrameProcessor(width, height);
-  frameProcessor.setLut(lut);
-
-  const videoSampleSink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'prefer-hardware' });
-  const stats = await videoTrack.computePacketStats(200);
-  const duration = await input.computeDuration();
-  const estimatedTotalFrames = Math.round(stats.averagePacketRate * duration);
-
-  let processedFrames = 0;
-  for await (const sample of videoSampleSink.samples()) {
-    await frameProcessor.process(sample);
-
-    const outputSample = new VideoSample(frameProcessor.outputCanvas, {
-      timestamp: sample.timestamp,
-      duration: sample.duration,
-      colorSpace: { primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: false },
-    });
-    sample.close();
-
-    await videoSource.add(outputSample);
-    outputSample.close();
-
-    processedFrames++;
-    onProgress?.({
-      processedFrames,
-      totalFrames: Number.isFinite(estimatedTotalFrames) && estimatedTotalFrames > 0 ? estimatedTotalFrames : null,
-    });
-  }
-
-  videoSource.close();
-  await audioDone;
-  audioPacketSource?.close();
-
-  frameProcessor.dispose();
-  await output.finalize();
-  input.dispose();
-
-  if (!target.buffer) throw new Error("La sortie n'a pas pu être générée.");
-
-  return { blob: new Blob([target.buffer], { type: 'video/mp4' }), fileName: buildOutputFileName(file.name) };
 }
 
 async function copyAudioPackets(
