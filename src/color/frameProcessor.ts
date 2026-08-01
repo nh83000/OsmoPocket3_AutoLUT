@@ -37,6 +37,7 @@ export class FrameProcessor {
   private readonly uTexture: WebGLTexture;
   private readonly vTexture: WebGLTexture;
   private readonly vao: WebGLVertexArrayObject;
+  private quadBuffer!: WebGLBuffer;
   private lutTexture: WebGLTexture | null = null;
   private lutSize = 0;
 
@@ -121,6 +122,7 @@ export class FrameProcessor {
     gl.deleteTexture(this.vTexture);
     if (this.lutTexture) gl.deleteTexture(this.lutTexture);
     for (const bundle of this.programs.values()) gl.deleteProgram(bundle.program);
+    gl.deleteBuffer(this.quadBuffer);
     gl.deleteVertexArray(this.vao);
   }
 
@@ -284,6 +286,7 @@ export class FrameProcessor {
     gl.bindVertexArray(vao);
 
     const buffer = gl.createBuffer();
+    if (!buffer) throw new Error('Impossible de créer le buffer.');
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
@@ -291,6 +294,7 @@ export class FrameProcessor {
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
     gl.bindVertexArray(null);
+    this.quadBuffer = buffer;
     return vao;
   }
 }
