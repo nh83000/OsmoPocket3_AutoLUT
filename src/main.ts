@@ -1,19 +1,34 @@
 import { parseCubeLut, type ParsedCubeLut } from './lut/cubeParser';
 import { UnsupportedVideoError, processVideo } from './pipeline/videoProcessor';
 import { VideoDropzone } from './ui/dropzone';
-import { LutSelector } from './ui/lutSelector';
+import { LutSelector, type LutOption } from './ui/lutSelector';
 import { generatePreview } from './ui/preview';
 import { ProcessingQueue, type QueueItem } from './ui/queue';
 import './style.css';
+
+const BUILT_IN_LUTS = [
+  { name: 'DJI Osmo Pocket 3 — D-Log M vers Rec.709', file: 'dji-dlogm-rec709.cube' },
+  { name: 'DJI Osmo Pocket 3 — Spring Pro', file: 'dji-dlogm-spring-pro.cube' },
+  { name: 'DJI Osmo Pocket 3 — Summer Pro', file: 'dji-dlogm-summer-pro.cube' },
+  { name: 'DJI Osmo Pocket 3 — Autumn Pro', file: 'dji-dlogm-autumn-pro.cube' },
+  { name: 'DJI Osmo Pocket 3 — Winter Pro', file: 'dji-dlogm-winter-pro.cube' },
+];
+
+async function loadBuiltInLuts(): Promise<LutOption[]> {
+  return Promise.all(
+    BUILT_IN_LUTS.map(async (preset) => {
+      const response = await fetch(`${import.meta.env.BASE_URL}luts/${preset.file}`);
+      if (!response.ok) throw new Error(`Impossible de charger le LUT intégré "${preset.file}" (${response.status}).`);
+      return { name: preset.name, lut: parseCubeLut(await response.text()) };
+    }),
+  );
+}
 
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('#app introuvable dans index.html.');
 
-  const defaultLutResponse = await fetch(`${import.meta.env.BASE_URL}luts/dji-dlogm-rec709.cube`);
-  const defaultLut = parseCubeLut(await defaultLutResponse.text());
-
-  const lutSelector = new LutSelector({ name: 'DJI Osmo Pocket 3 — D-Log M vers Rec.709', lut: defaultLut });
+  const lutSelector = new LutSelector(await loadBuiltInLuts());
   const dropzone = new VideoDropzone();
   const queue = new ProcessingQueue();
   const previewContainer = document.createElement('div');

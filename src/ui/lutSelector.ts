@@ -12,8 +12,8 @@ export class LutSelector {
   private options: LutOption[];
   private onChangeCallback: ((lut: ParsedCubeLut) => void) | null = null;
 
-  constructor(defaultOption: LutOption) {
-    this.options = [defaultOption];
+  constructor(builtInOptions: LutOption[]) {
+    this.options = builtInOptions;
 
     this.element = document.createElement('div');
     this.element.className = 'lut-selector';
