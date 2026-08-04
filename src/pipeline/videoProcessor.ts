@@ -182,7 +182,7 @@ async function copyAudioPackets(
   }
 }
 
-function buildOutputFileName(originalName: string): string {
+export function buildOutputFileName(originalName: string): string {
   const dotIndex = originalName.lastIndexOf('.');
   const base = dotIndex === -1 ? originalName : originalName.slice(0, dotIndex);
   return `${base}_graded.mp4`;

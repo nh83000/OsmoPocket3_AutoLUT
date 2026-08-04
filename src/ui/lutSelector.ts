@@ -29,13 +29,18 @@ export class LutSelector {
     addButton.textContent = 'Ajouter un LUT (.cube)';
     addButton.addEventListener('click', () => this.fileInput.click());
 
+    const renameButton = document.createElement('button');
+    renameButton.type = 'button';
+    renameButton.textContent = 'Renommer';
+    renameButton.addEventListener('click', () => this.renameSelected());
+
     this.fileInput = document.createElement('input');
     this.fileInput.type = 'file';
     this.fileInput.accept = '.cube';
     this.fileInput.hidden = true;
     this.fileInput.addEventListener('change', () => void this.handleFileSelected());
 
-    this.element.append(this.select, addButton, this.fileInput);
+    this.element.append(this.select, renameButton, addButton, this.fileInput);
     this.renderOptions();
   }
 
@@ -62,6 +67,18 @@ export class LutSelector {
     } finally {
       this.fileInput.value = '';
     }
+  }
+
+  private renameSelected(): void {
+    const option = this.options[this.select.selectedIndex];
+    if (!option) return;
+
+    const newName = prompt('Nouveau nom pour ce LUT :', option.name);
+    if (!newName || !newName.trim()) return;
+
+    option.name = newName.trim();
+    this.renderOptions();
+    this.select.selectedIndex = this.options.indexOf(option);
   }
 
   private renderOptions(): void {

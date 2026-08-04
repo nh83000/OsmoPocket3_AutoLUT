@@ -25,9 +25,14 @@ export class ProcessingQueue {
     const listItem = document.createElement('li');
     listItem.className = 'queue-item';
 
-    const name = document.createElement('span');
-    name.className = 'queue-item__name';
-    name.textContent = item.fileName;
+    // Champ libre plutôt qu'un simple libellé : l'utilisateur peut renommer le fichier de sortie à
+    // tout moment (avant ou après traitement). C'est cette valeur, pas `item.fileName`, qui fait
+    // foi au moment du téléchargement — `updateItem()` ne la réécrit donc jamais après coup.
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'queue-item__name';
+    nameInput.value = item.fileName;
+    nameInput.title = 'Nom du fichier à télécharger';
 
     const progress = document.createElement('progress');
     progress.className = 'queue-item__progress';
@@ -43,10 +48,10 @@ export class ProcessingQueue {
     downloadButton.hidden = true;
     downloadButton.addEventListener('click', () => {
       const current = this.items.get(item.id);
-      if (current?.blob) downloadBlob(current.blob, current.fileName);
+      if (current?.blob) downloadBlob(current.blob, nameInput.value.trim() || current.fileName);
     });
 
-    listItem.append(name, progress, status, downloadButton);
+    listItem.append(nameInput, progress, status, downloadButton);
     this.itemElements.set(item.id, listItem);
     this.element.appendChild(listItem);
     this.updateItem(item);

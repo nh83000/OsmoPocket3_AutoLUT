@@ -1,5 +1,5 @@
 import { parseCubeLut, type ParsedCubeLut } from './lut/cubeParser';
-import { UnsupportedVideoError, processVideo } from './pipeline/videoProcessor';
+import { UnsupportedVideoError, buildOutputFileName, processVideo } from './pipeline/videoProcessor';
 import { VideoDropzone } from './ui/dropzone';
 import { LutSelector, type LutOption } from './ui/lutSelector';
 import { generatePreview } from './ui/preview';
@@ -24,6 +24,8 @@ async function loadBuiltInLuts(): Promise<LutOption[]> {
   );
 }
 
+type PendingEntry = { file: File; lut: ParsedCubeLut; item: QueueItem };
+
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('#app introuvable dans index.html.');
@@ -34,29 +36,66 @@ async function main(): Promise<void> {
   const previewContainer = document.createElement('div');
   previewContainer.className = 'preview';
 
-  app.append(lutSelector.element, dropzone.element, previewContainer, queue.element);
+  const startButton = document.createElement('button');
+  startButton.type = 'button';
+  startButton.className = 'start-button';
+  startButton.textContent = 'Lancer le traitement';
+  startButton.disabled = true;
+
+  app.append(lutSelector.element, dropzone.element, previewContainer, startButton, queue.element);
+
+  // Fichiers déposés mais pas encore traités : le traitement ne démarre plus automatiquement, il
+  // faut cliquer sur `startButton`. Une entrée quitte cette file dès qu'elle est prise en charge,
+  // qu'un nouveau dépôt puisse s'ajouter par-dessus sans retraiter ce qui est déjà en cours/fini.
+  const pending = new Map<string, PendingEntry>();
+  let isProcessing = false;
+
+  const refreshStartButton = (): void => {
+    startButton.disabled = isProcessing || pending.size === 0;
+    startButton.textContent = isProcessing ? 'Traitement en cours…' : 'Lancer le traitement';
+  };
 
   dropzone.onFiles((files) => {
-    void handleFiles(files, lutSelector.selectedLut, queue, previewContainer);
+    void showPreview(files[0]!, lutSelector.selectedLut, previewContainer);
+
+    for (const file of files) {
+      const item: QueueItem = {
+        id: crypto.randomUUID(),
+        fileName: buildOutputFileName(file.name),
+        status: 'waiting',
+        progress: 0,
+      };
+      queue.addItem(item);
+      // Le LUT sélectionné au moment du dépôt est celui appliqué à ce fichier, même si la sélection
+      // change ensuite avant de cliquer sur "Lancer le traitement".
+      pending.set(item.id, { file, lut: lutSelector.selectedLut, item });
+    }
+    refreshStartButton();
+  });
+
+  startButton.addEventListener('click', () => {
+    if (isProcessing) return;
+    isProcessing = true;
+    refreshStartButton();
+    void processPending(pending, queue).finally(() => {
+      isProcessing = false;
+      refreshStartButton();
+    });
   });
 }
 
-async function handleFiles(
-  files: File[],
-  lut: ParsedCubeLut,
-  queue: ProcessingQueue,
-  previewContainer: HTMLElement,
-): Promise<void> {
+async function showPreview(file: File, lut: ParsedCubeLut, previewContainer: HTMLElement): Promise<void> {
   try {
-    const { beforeCanvas, afterCanvas } = await generatePreview(files[0]!, lut);
+    const { beforeCanvas, afterCanvas } = await generatePreview(file, lut);
     previewContainer.replaceChildren(toDisplayCanvas(beforeCanvas), toDisplayCanvas(afterCanvas));
   } catch (error) {
     console.error('Aperçu impossible :', error);
   }
+}
 
-  for (const file of files) {
-    const item: QueueItem = { id: crypto.randomUUID(), fileName: file.name, status: 'waiting', progress: 0 };
-    queue.addItem(item);
+async function processPending(pending: Map<string, PendingEntry>, queue: ProcessingQueue): Promise<void> {
+  for (const [id, { file, lut, item }] of pending) {
+    pending.delete(id);
 
     item.status = 'processing';
     queue.updateItem(item);
@@ -73,9 +112,6 @@ async function handleFiles(
 
       item.status = 'done';
       item.progress = 1;
-      // Remplace le nom source par le nom de sortie ("..._graded.mp4") : le libellé déjà affiché dans
-      // la file ne change pas rétroactivement, seul le nom utilisé par le bouton de téléchargement.
-      item.fileName = result.fileName;
       item.blob = result.blob;
       item.audioDropped = result.audioDropped;
       item.colorPipelineFallback = result.colorPipelineFallback;
