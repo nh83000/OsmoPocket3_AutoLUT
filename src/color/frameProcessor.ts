@@ -67,6 +67,13 @@ export class FrameProcessor {
 
   async process(sample: VideoSample): Promise<void> {
     if (!this.lutTexture) throw new Error('Aucun LUT chargé : appeler setLut() avant process().');
+    if (sample.format === null) {
+      throw new Error(
+        "Cette image décodée n'expose aucun format de pixel lisible (frame opaque, données " +
+          "accessibles uniquement côté GPU) — limitation du décodage matériel sur cette machine. " +
+          'Essayez un autre navigateur (Chrome/Edge) ou mettez à jour les pilotes graphiques.',
+      );
+    }
 
     const lumaBitDepth = detectSourceBitDepth(sample.format);
     // mediabunny's own `VideoSample.format` is typed with its richer `VideoSamplePixelFormat` union

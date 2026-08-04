@@ -93,11 +93,11 @@ export async function processVideo(options: ProcessVideoOptions): Promise<Proces
     frameProcessor = new FrameProcessor(width, height);
     frameProcessor.setLut(lut);
 
-    // 'prefer-software' garantit des VideoFrame décodées dont les plans sont lisibles via
-    // copyTo()/allocationSize() : sur certains GPU/pilotes Windows, le décodage matériel HEVC 10 bits
-    // retourne des frames avec format === null (données uniquement accessibles côté GPU), ce qui casse
-    // l'extraction manuelle des plans YUV nécessaire au pipeline de précision.
-    const videoSampleSink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'prefer-software' });
+    // 'no-preference' (le défaut recommandé par mediabunny) laisse le navigateur choisir la voie de
+    // décodage : le HEVC n'a pas de décodeur logiciel dans Chrome/Edge (licence), donc forcer
+    // 'prefer-software' casse totalement le décodage, tandis que forcer 'prefer-hardware' peut, sur
+    // certains GPU/pilotes, produire des VideoFrame avec format === null (illisibles via copyTo()).
+    const videoSampleSink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'no-preference' });
     const stats = await videoTrack.computePacketStats(200);
     const duration = await input.computeDuration();
     const estimatedTotalFrames = Math.round(stats.averagePacketRate * duration);
