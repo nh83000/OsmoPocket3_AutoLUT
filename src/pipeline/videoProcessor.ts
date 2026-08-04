@@ -46,16 +46,17 @@ export async function processVideo(options: ProcessVideoOptions): Promise<Proces
   const { file, lut, onProgress } = options;
 
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
-  const videoTrack = await input.getPrimaryVideoTrack();
-  if (!videoTrack) throw new Error('Aucune piste vidéo trouvée dans ce fichier.');
-
-  const support = await checkVideoTrackSupport(videoTrack);
-  if (!support.supported) throw new UnsupportedVideoError(support.message);
 
   let frameProcessor: FrameProcessor | undefined;
   let output: Output | undefined;
 
   try {
+    const videoTrack = await input.getPrimaryVideoTrack();
+    if (!videoTrack) throw new Error('Aucune piste vidéo trouvée dans ce fichier.');
+
+    const support = await checkVideoTrackSupport(videoTrack);
+    if (!support.supported) throw new UnsupportedVideoError(support.message);
+
     const audioTrack = await input.getPrimaryAudioTrack();
 
     const target = new BufferTarget();
