@@ -10,7 +10,7 @@ async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('#app introuvable dans index.html.');
 
-  const defaultLutResponse = await fetch('/luts/dji-dlogm-rec709.cube');
+  const defaultLutResponse = await fetch(`${import.meta.env.BASE_URL}luts/dji-dlogm-rec709.cube`);
   const defaultLut = parseCubeLut(await defaultLutResponse.text());
 
   const lutSelector = new LutSelector({ name: 'DJI Osmo Pocket 3 — D-Log M vers Rec.709', lut: defaultLut });
@@ -34,7 +34,7 @@ async function handleFiles(
 ): Promise<void> {
   try {
     const { beforeCanvas, afterCanvas } = await generatePreview(files[0]!, lut);
-    previewContainer.replaceChildren(withPreviewClass(beforeCanvas), withPreviewClass(afterCanvas));
+    previewContainer.replaceChildren(toDisplayCanvas(beforeCanvas), toDisplayCanvas(afterCanvas));
   } catch (error) {
     console.error('Aperçu impossible :', error);
   }
@@ -69,10 +69,22 @@ async function handleFiles(
   }
 }
 
-function withPreviewClass(canvas: HTMLCanvasElement | OffscreenCanvas): HTMLCanvasElement {
-  const element = canvas as HTMLCanvasElement;
-  element.classList.add('preview__canvas');
-  return element;
+function toDisplayCanvas(canvas: HTMLCanvasElement | OffscreenCanvas): HTMLCanvasElement {
+  if (canvas instanceof HTMLCanvasElement) {
+    canvas.classList.add('preview__canvas');
+    return canvas;
+  }
+
+  const displayCanvas = document.createElement('canvas');
+  displayCanvas.width = canvas.width;
+  displayCanvas.height = canvas.height;
+  displayCanvas.classList.add('preview__canvas');
+
+  const context = displayCanvas.getContext('2d');
+  if (!context) throw new Error("Contexte 2D indisponible pour afficher l'aperçu.");
+  context.drawImage(canvas, 0, 0);
+
+  return displayCanvas;
 }
 
 function downloadBlob(blob: Blob, fileName: string): void {
@@ -84,4 +96,10 @@ function downloadBlob(blob: Blob, fileName: string): void {
   URL.revokeObjectURL(url);
 }
 
-void main();
+void main().catch((error) => {
+  console.error(error);
+  const app = document.querySelector<HTMLDivElement>('#app');
+  if (app) {
+    app.textContent = `Erreur au chargement de l'application : ${(error as Error).message}`;
+  }
+});
