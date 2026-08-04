@@ -1,10 +1,17 @@
-/** Un seul triangle plein écran (pas de buffer d'index nécessaire). */
+/**
+ * Un seul triangle plein écran (pas de buffer d'index nécessaire).
+ *
+ * L'axe Y de vTexCoord est inversé par rapport à aPosition : nos données de pixels (plans vidéo ou
+ * VideoFrame) sont fournies avec la ligne 0 en haut de l'image, mais WebGL place la ligne 0 des
+ * données uploadées au niveau v=0 de la texture, qui correspond conventionnellement au bas de
+ * l'image une fois échantillonné. Sans cette inversion, la vidéo de sortie apparaît à l'envers.
+ */
 export const VERTEX_SHADER_SOURCE = `#version 300 es
 layout(location = 0) in vec2 aPosition;
 out vec2 vTexCoord;
 
 void main() {
-  vTexCoord = aPosition * 0.5 + 0.5;
+  vTexCoord = vec2(aPosition.x, -aPosition.y) * 0.5 + 0.5;
   gl_Position = vec4(aPosition, 0.0, 1.0);
 }
 `;

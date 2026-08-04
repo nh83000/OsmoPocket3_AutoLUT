@@ -56,9 +56,12 @@ async function handleFiles(
         },
       });
 
-      downloadBlob(result.blob, result.fileName);
       item.status = 'done';
       item.progress = 1;
+      // Remplace le nom source par le nom de sortie ("..._graded.mp4") : le libellé déjà affiché dans
+      // la file ne change pas rétroactivement, seul le nom utilisé par le bouton de téléchargement.
+      item.fileName = result.fileName;
+      item.blob = result.blob;
       item.audioDropped = result.audioDropped;
       item.colorPipelineFallback = result.colorPipelineFallback;
     } catch (error) {
@@ -86,15 +89,6 @@ function toDisplayCanvas(canvas: HTMLCanvasElement | OffscreenCanvas): HTMLCanva
   context.drawImage(canvas, 0, 0);
 
   return displayCanvas;
-}
-
-function downloadBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 void main().catch((error) => {

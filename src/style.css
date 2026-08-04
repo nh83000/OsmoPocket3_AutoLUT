@@ -62,3 +62,16 @@ body {
 .queue-item--done {
   color: #27ae60;
 }
+
+.queue-item__download {
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #27ae60;
+  background: transparent;
+  color: #27ae60;
+  cursor: pointer;
+}
+
+.queue-item__download:hover {
+  background: rgba(39, 174, 96, 0.1);
+}
