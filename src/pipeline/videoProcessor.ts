@@ -93,7 +93,11 @@ export async function processVideo(options: ProcessVideoOptions): Promise<Proces
     frameProcessor = new FrameProcessor(width, height);
     frameProcessor.setLut(lut);
 
-    const videoSampleSink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'prefer-hardware' });
+    // 'prefer-software' garantit des VideoFrame décodées dont les plans sont lisibles via
+    // copyTo()/allocationSize() : sur certains GPU/pilotes Windows, le décodage matériel HEVC 10 bits
+    // retourne des frames avec format === null (données uniquement accessibles côté GPU), ce qui casse
+    // l'extraction manuelle des plans YUV nécessaire au pipeline de précision.
+    const videoSampleSink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'prefer-software' });
     const stats = await videoTrack.computePacketStats(200);
     const duration = await input.computeDuration();
     const estimatedTotalFrames = Math.round(stats.averagePacketRate * duration);

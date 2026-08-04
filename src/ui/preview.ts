@@ -21,7 +21,9 @@ export async function generatePreview(file: File, lut: ParsedCubeLut): Promise<P
     const duration = await input.computeDuration();
     const previewTimestamp = Math.min(1, duration / 2);
 
-    const sink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'prefer-hardware' });
+    // Voir le commentaire équivalent dans videoProcessor.ts : le décodage matériel peut retourner des
+    // VideoFrame avec format === null sur certains GPU/pilotes, ce qui casse copyTo()/allocationSize().
+    const sink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'prefer-software' });
     sample = await sink.getSample(previewTimestamp);
     if (!sample) throw new Error("Impossible d'extraire une image d'aperçu de cette vidéo.");
 
