@@ -60,6 +60,7 @@ async function handleFiles(
       item.status = 'done';
       item.progress = 1;
       item.audioDropped = result.audioDropped;
+      item.colorPipelineFallback = result.colorPipelineFallback;
     } catch (error) {
       item.status = 'error';
       item.errorMessage = error instanceof UnsupportedVideoError ? error.message : (error as Error).message;

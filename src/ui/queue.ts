@@ -7,6 +7,7 @@ export type QueueItem = {
   progress: number;
   errorMessage?: string;
   audioDropped?: boolean;
+  colorPipelineFallback?: boolean;
 };
 
 export class ProcessingQueue {
@@ -58,8 +59,12 @@ function describeStatus(item: QueueItem): string {
       return 'En attente';
     case 'processing':
       return `Traitement… ${Math.round(item.progress * 100)}%`;
-    case 'done':
-      return item.audioDropped ? 'Terminé (sans audio : codec non reconnu)' : 'Terminé, téléchargé';
+    case 'done': {
+      const notes: string[] = [];
+      if (item.audioDropped) notes.push('sans audio : codec non reconnu');
+      if (item.colorPipelineFallback) notes.push('mode compatibilité couleur');
+      return notes.length > 0 ? `Terminé (${notes.join(', ')})` : 'Terminé, téléchargé';
+    }
     case 'error':
       return `Erreur : ${item.errorMessage ?? 'inconnue'}`;
   }

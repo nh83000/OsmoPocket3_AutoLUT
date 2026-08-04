@@ -2,7 +2,7 @@ import type { VideoSample } from 'mediabunny';
 import type { ParsedCubeLut } from '../lut/cubeParser';
 import { resolveYuvToRgbCoefficients } from './colorSpace';
 import { createLutTexture } from './lutTexture';
-import { VERTEX_SHADER_SOURCE, buildFragmentShaderSource } from './shaders';
+import { RGBA_FRAGMENT_SHADER_SOURCE, VERTEX_SHADER_SOURCE, buildFragmentShaderSource } from './shaders';
 
 type LumaBitDepth = 8 | 10;
 
@@ -16,6 +16,15 @@ type ProgramBundle = {
     kr: WebGLUniformLocation;
     kb: WebGLUniformLocation;
     fullRange: WebGLUniformLocation;
+    lutSize: WebGLUniformLocation;
+  };
+};
+
+type RgbaProgramBundle = {
+  program: WebGLProgram;
+  uniforms: {
+    sourceTexture: WebGLUniformLocation;
+    lutTexture: WebGLUniformLocation;
     lutSize: WebGLUniformLocation;
   };
 };
@@ -36,10 +45,13 @@ export class FrameProcessor {
   private readonly yTexture: WebGLTexture;
   private readonly uTexture: WebGLTexture;
   private readonly vTexture: WebGLTexture;
+  private readonly sourceTexture: WebGLTexture;
   private readonly vao: WebGLVertexArrayObject;
   private quadBuffer!: WebGLBuffer;
   private lutTexture: WebGLTexture | null = null;
   private lutSize = 0;
+  private rgbaProgram: RgbaProgramBundle | null = null;
+  private lastFrameUsedFallback = false;
 
   constructor(width: number, height: number) {
     this.canvas =
@@ -52,11 +64,17 @@ export class FrameProcessor {
     this.yTexture = this.createLumaTexture();
     this.uTexture = this.createChromaTexture();
     this.vTexture = this.createChromaTexture();
+    this.sourceTexture = this.createChromaTexture();
     this.vao = this.createFullscreenQuad();
   }
 
   get outputCanvas(): OffscreenCanvas | HTMLCanvasElement {
     return this.canvas;
+  }
+
+  /** `true` si la dernière frame traitée a dû passer par le chemin de secours RGBA (voir `process()`). */
+  get usedFallbackPath(): boolean {
+    return this.lastFrameUsedFallback;
   }
 
   setLut(lut: ParsedCubeLut): void {
@@ -67,13 +85,17 @@ export class FrameProcessor {
 
   async process(sample: VideoSample): Promise<void> {
     if (!this.lutTexture) throw new Error('Aucun LUT chargé : appeler setLut() avant process().');
+
     if (sample.format === null) {
-      throw new Error(
-        "Cette image décodée n'expose aucun format de pixel lisible (frame opaque, données " +
-          "accessibles uniquement côté GPU) — limitation du décodage matériel sur cette machine. " +
-          'Essayez un autre navigateur (Chrome/Edge) ou mettez à jour les pilotes graphiques.',
-      );
+      // Frame opaque (donnée lisible uniquement côté GPU) : impossible d'extraire les plans Y/U/V à la
+      // main sur cette machine. On délègue la conversion YUV→RGB au navigateur via texImage2D plutôt
+      // que d'échouer complètement — voir RGBA_FRAGMENT_SHADER_SOURCE. Signalé à l'appelant via
+      // `usedFallbackPath` pour que l'UI informe l'utilisateur que ce fichier a pris ce chemin.
+      this.lastFrameUsedFallback = true;
+      this.processOpaqueFrame(sample);
+      return;
     }
+    this.lastFrameUsedFallback = false;
 
     const lumaBitDepth = detectSourceBitDepth(sample.format);
     // mediabunny's own `VideoSample.format` is typed with its richer `VideoSamplePixelFormat` union
@@ -127,10 +149,62 @@ export class FrameProcessor {
     gl.deleteTexture(this.yTexture);
     gl.deleteTexture(this.uTexture);
     gl.deleteTexture(this.vTexture);
+    gl.deleteTexture(this.sourceTexture);
     if (this.lutTexture) gl.deleteTexture(this.lutTexture);
     for (const bundle of this.programs.values()) gl.deleteProgram(bundle.program);
+    if (this.rgbaProgram) gl.deleteProgram(this.rgbaProgram.program);
     gl.deleteBuffer(this.quadBuffer);
     gl.deleteVertexArray(this.vao);
+  }
+
+  /** Chemin de secours pour les frames opaques : voir le commentaire dans `process()`. */
+  private processOpaqueFrame(sample: VideoSample): void {
+    const gl = this.gl;
+
+    // `toVideoFrame()` doit être fermée séparément du VideoSample source (doc mediabunny) ; on la
+    // ferme dès l'upload synchrone dans la texture, sa donnée n'est plus nécessaire ensuite.
+    const videoFrame = sample.toVideoFrame();
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, videoFrame);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    } finally {
+      videoFrame.close();
+    }
+
+    const bundle = this.getOrCreateRgbaProgram();
+
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    gl.useProgram(bundle.program);
+    gl.bindVertexArray(this.vao);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);
+    gl.uniform1i(bundle.uniforms.sourceTexture, 0);
+
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_3D, this.lutTexture);
+    gl.uniform1i(bundle.uniforms.lutTexture, 3);
+
+    gl.uniform1f(bundle.uniforms.lutSize, this.lutSize);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+
+  private getOrCreateRgbaProgram(): RgbaProgramBundle {
+    if (this.rgbaProgram) return this.rgbaProgram;
+
+    const program = this.compileProgram(RGBA_FRAGMENT_SHADER_SOURCE);
+    const bundle: RgbaProgramBundle = {
+      program,
+      uniforms: {
+        sourceTexture: this.getUniformLocation(program, 'uSourceTexture'),
+        lutTexture: this.getUniformLocation(program, 'uLutTexture'),
+        lutSize: this.getUniformLocation(program, 'uLutSize'),
+      },
+    };
+    this.rgbaProgram = bundle;
+    return bundle;
   }
 
   private uploadPlanes(

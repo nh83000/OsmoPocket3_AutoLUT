@@ -36,6 +36,12 @@ export type ProcessVideoResult = {
   fileName: string;
   /** `true` si une piste audio source existait mais n'a pas pu être copiée (codec inconnu, par ex.). */
   audioDropped: boolean;
+  /**
+   * `true` si le décodage matériel a fourni des frames illisibles côté CPU sur cette machine : la
+   * conversion YUV→RGB a été déléguée au navigateur (chemin de secours) au lieu du pipeline de
+   * précision habituel. Voir `FrameProcessor.usedFallbackPath`.
+   */
+  colorPipelineFallback: boolean;
 };
 
 const MINIMUM_OUTPUT_BITRATE = 20_000_000;
@@ -103,9 +109,17 @@ export async function processVideo(options: ProcessVideoOptions): Promise<Proces
     const estimatedTotalFrames = Math.round(stats.averagePacketRate * duration);
 
     let processedFrames = 0;
+    let colorPipelineFallback = false;
     for await (const sample of videoSampleSink.samples()) {
       try {
         await frameProcessor.process(sample);
+        if (frameProcessor.usedFallbackPath && !colorPipelineFallback) {
+          colorPipelineFallback = true;
+          console.warn(
+            `Décodage matériel opaque détecté pour "${file.name}" : bascule automatique vers le mode de ` +
+              'compatibilité couleur (conversion YUV→RGB déléguée au navigateur, hors pipeline de précision habituel).',
+          );
+        }
 
         const outputSample = new VideoSample(frameProcessor.outputCanvas, {
           timestamp: sample.timestamp,
@@ -140,6 +154,7 @@ export async function processVideo(options: ProcessVideoOptions): Promise<Proces
       blob: new Blob([target.buffer], { type: 'video/mp4' }),
       fileName: buildOutputFileName(file.name),
       audioDropped,
+      colorPipelineFallback,
     };
   } catch (error) {
     await output?.cancel().catch(() => {});

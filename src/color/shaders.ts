@@ -81,3 +81,32 @@ void main() {
 }
 `;
 }
+
+/**
+ * Shader de secours : quand le décodeur matériel renvoie une frame "opaque" (VideoFrame.format ===
+ * null, données lisibles uniquement côté GPU), l'extraction manuelle des plans Y/U/V est impossible.
+ * On délègue alors la conversion YUV→RGB au navigateur (upload direct de la VideoFrame comme texture
+ * RGBA via texImage2D) et on se contente d'appliquer le LUT ici — même logique d'échantillonnage que
+ * le shader principal, sans la partie colorimétrie YUV manuelle.
+ */
+export const RGBA_FRAGMENT_SHADER_SOURCE = `#version 300 es
+precision highp float;
+precision highp sampler3D;
+
+in vec2 vTexCoord;
+out vec4 fragColor;
+
+uniform sampler2D uSourceTexture;
+uniform sampler3D uLutTexture;
+uniform float uLutSize;
+
+void main() {
+  vec3 rgb = clamp(texture(uSourceTexture, vTexCoord).rgb, 0.0, 1.0);
+
+  float lutScale = (uLutSize - 1.0) / uLutSize;
+  float lutOffset = 0.5 / uLutSize;
+  vec3 lutCoord = rgb * lutScale + lutOffset;
+
+  fragColor = vec4(texture(uLutTexture, lutCoord).rgb, 1.0);
+}
+`;
