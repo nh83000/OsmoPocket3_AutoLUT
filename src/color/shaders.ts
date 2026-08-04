@@ -31,6 +31,7 @@ export function buildFragmentShaderSource(lumaBitDepth: 8 | 10): string {
 
   return `#version 300 es
 precision highp float;
+precision highp sampler3D;
 ${isIntegerLuma ? 'precision highp usampler2D;' : ''}
 
 in vec2 vTexCoord;
