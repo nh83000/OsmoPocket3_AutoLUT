@@ -30,7 +30,7 @@ async function loadBuiltInLuts(): Promise<LutOption[]> {
 }
 
 type PendingEntry = { file: File; item: QueueItem };
-type PreviewEntry = { file: File; beforeFigure: HTMLElement; afterFigure: HTMLElement };
+type PreviewEntry = { file: File; nameElement: HTMLElement; beforeFigure: HTMLElement; afterFigure: HTMLElement };
 
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
@@ -93,9 +93,9 @@ async function main(): Promise<void> {
       queue.addItem(item);
       pending.set(item.id, { file, item });
 
-      const { card, beforeFigure, afterFigure } = buildPreviewCard(file.name);
+      const { card, nameElement, beforeFigure, afterFigure } = buildPreviewCard(item.fileName);
       previewScroll.appendChild(card);
-      const previewEntry: PreviewEntry = { file, beforeFigure, afterFigure };
+      const previewEntry: PreviewEntry = { file, nameElement, beforeFigure, afterFigure };
       previewEntries.set(item.id, previewEntry);
       newPreviewEntries.push(previewEntry);
     }
@@ -110,6 +110,16 @@ async function main(): Promise<void> {
 
   lutSelector.onChange((lut) => {
     void renderPreviews([...previewEntries.values()], lut);
+  });
+
+  // Le nom modifiable dans la file (étape 3) fait foi ; on le répercute au-dessus de l'aperçu
+  // correspondant (étape 2) pour que les deux restent synchronisés.
+  queue.onRename((id, newName) => {
+    const previewEntry = previewEntries.get(id);
+    if (previewEntry) {
+      previewEntry.nameElement.textContent = newName;
+      previewEntry.nameElement.title = newName;
+    }
   });
 
   startButton.addEventListener('click', () => {
@@ -138,14 +148,16 @@ function buildStep(number: string, title: string, ...children: HTMLElement[]): H
   return section;
 }
 
-function buildPreviewCard(fileName: string): { card: HTMLElement; beforeFigure: HTMLElement; afterFigure: HTMLElement } {
+function buildPreviewCard(
+  fileName: string,
+): { card: HTMLElement; nameElement: HTMLElement; beforeFigure: HTMLElement; afterFigure: HTMLElement } {
   const card = document.createElement('div');
   card.className = 'preview-card';
 
-  const name = document.createElement('p');
-  name.className = 'preview-card__name';
-  name.textContent = fileName;
-  name.title = fileName;
+  const nameElement = document.createElement('p');
+  nameElement.className = 'preview-card__name';
+  nameElement.textContent = fileName;
+  nameElement.title = fileName;
 
   const row = document.createElement('div');
   row.className = 'preview';
@@ -153,8 +165,8 @@ function buildPreviewCard(fileName: string): { card: HTMLElement; beforeFigure: 
   const afterFigure = buildPreviewFigure('Après');
   row.append(beforeFigure, afterFigure);
 
-  card.append(name, row);
-  return { card, beforeFigure, afterFigure };
+  card.append(nameElement, row);
+  return { card, nameElement, beforeFigure, afterFigure };
 }
 
 function buildPreviewFigure(label: string): HTMLElement {

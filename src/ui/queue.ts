@@ -15,10 +15,16 @@ export class ProcessingQueue {
   readonly element: HTMLElement;
   private readonly itemElements = new Map<string, HTMLElement>();
   private readonly items = new Map<string, QueueItem>();
+  private onRenameCallback: ((id: string, newName: string) => void) | null = null;
 
   constructor() {
     this.element = document.createElement('ul');
     this.element.className = 'queue';
+  }
+
+  /** Appelé à chaque frappe dans le champ de nom d'un élément (id, nouvelle valeur). */
+  onRename(callback: (id: string, newName: string) => void): void {
+    this.onRenameCallback = callback;
   }
 
   addItem(item: QueueItem): void {
@@ -36,6 +42,7 @@ export class ProcessingQueue {
     nameInput.className = 'queue-item__name';
     nameInput.value = item.fileName;
     nameInput.title = 'Nom du fichier à télécharger';
+    nameInput.addEventListener('input', () => this.onRenameCallback?.(item.id, nameInput.value));
 
     const status = document.createElement('span');
     status.className = 'queue-item__status badge';
