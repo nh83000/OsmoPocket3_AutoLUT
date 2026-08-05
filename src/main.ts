@@ -12,6 +12,11 @@ const BUILT_IN_LUTS = [
   { name: 'DJI Osmo Pocket 3 — Summer Pro', file: 'dji-dlogm-summer-pro.cube' },
   { name: 'DJI Osmo Pocket 3 — Autumn Pro', file: 'dji-dlogm-autumn-pro.cube' },
   { name: 'DJI Osmo Pocket 3 — Winter Pro', file: 'dji-dlogm-winter-pro.cube' },
+  // Presetpro : LUT "look" génériques, pensées pour une entrée déjà en Rec.709 (pas du D-Log M brut) —
+  // à utiliser en 2e passe, sur une vidéo déjà convertie par le LUT DJI ci-dessus.
+  { name: 'Presetpro — Agfa Ultra 100 (sur Rec.709 déjà converti)', file: 'presetpro-agfa-ultra-100.cube' },
+  { name: 'Presetpro — Moody Stock (sur Rec.709 déjà converti)', file: 'presetpro-moody-stock.cube' },
+  { name: 'Presetpro — Polaroid Color (sur Rec.709 déjà converti)', file: 'presetpro-polaroid-color.cube' },
 ];
 
 async function loadBuiltInLuts(): Promise<LutOption[]> {
