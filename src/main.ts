@@ -29,7 +29,8 @@ async function loadBuiltInLuts(): Promise<LutOption[]> {
   );
 }
 
-type PendingEntry = { file: File; lut: ParsedCubeLut; item: QueueItem };
+type PendingEntry = { file: File; item: QueueItem };
+type PreviewEntry = { file: File; beforeFigure: HTMLElement; afterFigure: HTMLElement };
 
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
@@ -47,9 +48,9 @@ async function main(): Promise<void> {
 
   const previewSection = buildStep('2', 'Aperçu avant/après');
   previewSection.hidden = true;
-  const previewContainer = document.createElement('div');
-  previewContainer.className = 'preview';
-  previewSection.appendChild(previewContainer);
+  const previewScroll = document.createElement('div');
+  previewScroll.className = 'preview-scroll';
+  previewSection.appendChild(previewScroll);
 
   const startButton = document.createElement('button');
   startButton.type = 'button';
@@ -68,6 +69,10 @@ async function main(): Promise<void> {
   // faut cliquer sur `startButton`. Une entrée quitte cette file dès qu'elle est prise en charge,
   // qu'un nouveau dépôt puisse s'ajouter par-dessus sans retraiter ce qui est déjà en cours/fini.
   const pending = new Map<string, PendingEntry>();
+  // Un aperçu par vidéo déposée, gardé pour toute la session (même après traitement) et régénéré
+  // dès que la sélection de LUT change, pour que l'aperçu affiché corresponde toujours à ce qui sera
+  // réellement appliqué au clic sur "Lancer le traitement".
+  const previewEntries = new Map<string, PreviewEntry>();
   let isProcessing = false;
 
   const refreshStartButton = (): void => {
@@ -76,7 +81,7 @@ async function main(): Promise<void> {
   };
 
   dropzone.onFiles((files) => {
-    void showPreview(files[0]!, lutSelector.selectedLut, previewContainer, previewSection);
+    const newPreviewEntries: PreviewEntry[] = [];
 
     for (const file of files) {
       const item: QueueItem = {
@@ -86,18 +91,32 @@ async function main(): Promise<void> {
         progress: 0,
       };
       queue.addItem(item);
-      // Le LUT sélectionné au moment du dépôt est celui appliqué à ce fichier, même si la sélection
-      // change ensuite avant de cliquer sur "Lancer le traitement".
-      pending.set(item.id, { file, lut: lutSelector.selectedLut, item });
+      pending.set(item.id, { file, item });
+
+      const { card, beforeFigure, afterFigure } = buildPreviewCard(file.name);
+      previewScroll.appendChild(card);
+      const previewEntry: PreviewEntry = { file, beforeFigure, afterFigure };
+      previewEntries.set(item.id, previewEntry);
+      newPreviewEntries.push(previewEntry);
     }
+
+    previewSection.hidden = false;
+    // Rendu séquentiel, pas concurrent : chaque aperçu ouvre temporairement son propre contexte
+    // WebGL, et le navigateur en limite le nombre simultané (~8-16). Avec plusieurs fichiers déposés
+    // d'un coup, les traiter un par un évite de dépasser cette limite.
+    void renderPreviews(newPreviewEntries, lutSelector.selectedLut);
     refreshStartButton();
+  });
+
+  lutSelector.onChange((lut) => {
+    void renderPreviews([...previewEntries.values()], lut);
   });
 
   startButton.addEventListener('click', () => {
     if (isProcessing) return;
     isProcessing = true;
     refreshStartButton();
-    void processPending(pending, queue).finally(() => {
+    void processPending(pending, queue, lutSelector.selectedLut).finally(() => {
       isProcessing = false;
       refreshStartButton();
     });
@@ -119,36 +138,54 @@ function buildStep(number: string, title: string, ...children: HTMLElement[]): H
   return section;
 }
 
-async function showPreview(
-  file: File,
-  lut: ParsedCubeLut,
-  previewContainer: HTMLElement,
-  previewSection: HTMLElement,
-): Promise<void> {
-  try {
-    const { beforeCanvas, afterCanvas } = await generatePreview(file, lut);
-    previewContainer.replaceChildren(
-      buildPreviewFigure('Avant', toDisplayCanvas(beforeCanvas)),
-      buildPreviewFigure('Après', toDisplayCanvas(afterCanvas)),
-    );
-    previewSection.hidden = false;
-  } catch (error) {
-    console.error('Aperçu impossible :', error);
-  }
+function buildPreviewCard(fileName: string): { card: HTMLElement; beforeFigure: HTMLElement; afterFigure: HTMLElement } {
+  const card = document.createElement('div');
+  card.className = 'preview-card';
+
+  const name = document.createElement('p');
+  name.className = 'preview-card__name';
+  name.textContent = fileName;
+  name.title = fileName;
+
+  const row = document.createElement('div');
+  row.className = 'preview';
+  const beforeFigure = buildPreviewFigure('Avant');
+  const afterFigure = buildPreviewFigure('Après');
+  row.append(beforeFigure, afterFigure);
+
+  card.append(name, row);
+  return { card, beforeFigure, afterFigure };
 }
 
-function buildPreviewFigure(label: string, canvas: HTMLCanvasElement): HTMLElement {
+function buildPreviewFigure(label: string): HTMLElement {
   const figure = document.createElement('figure');
   figure.className = 'preview__figure';
   const caption = document.createElement('figcaption');
   caption.className = 'preview__caption';
   caption.textContent = label;
-  figure.append(caption, canvas);
+  figure.appendChild(caption);
   return figure;
 }
 
-async function processPending(pending: Map<string, PendingEntry>, queue: ProcessingQueue): Promise<void> {
-  for (const [id, { file, lut, item }] of pending) {
+function setPreviewFigureCanvas(figure: HTMLElement, canvas: HTMLCanvasElement): void {
+  figure.querySelector('canvas')?.remove();
+  figure.appendChild(canvas);
+}
+
+async function renderPreviews(entries: PreviewEntry[], lut: ParsedCubeLut): Promise<void> {
+  for (const entry of entries) {
+    try {
+      const { beforeCanvas, afterCanvas } = await generatePreview(entry.file, lut);
+      setPreviewFigureCanvas(entry.beforeFigure, toDisplayCanvas(beforeCanvas));
+      setPreviewFigureCanvas(entry.afterFigure, toDisplayCanvas(afterCanvas));
+    } catch (error) {
+      console.error(`Aperçu impossible pour "${entry.file.name}" :`, error);
+    }
+  }
+}
+
+async function processPending(pending: Map<string, PendingEntry>, queue: ProcessingQueue, lut: ParsedCubeLut): Promise<void> {
+  for (const [id, { file, item }] of pending) {
     pending.delete(id);
 
     item.status = 'processing';
