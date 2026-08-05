@@ -6,9 +6,12 @@ import type { ParsedCubeLut } from '../lut/cubeParser';
 export type PreviewResult = {
   beforeCanvas: HTMLCanvasElement;
   afterCanvas: OffscreenCanvas | HTMLCanvasElement;
+  /** Durée totale de la vidéo, en secondes — utile pour dimensionner un curseur de timeline. */
+  duration: number;
 };
 
-export async function generatePreview(file: File, lut: ParsedCubeLut): Promise<PreviewResult> {
+/** @param timestamp - Position à prévisualiser, en secondes. Par défaut, le milieu de la vidéo. */
+export async function generatePreview(file: File, lut: ParsedCubeLut, timestamp?: number): Promise<PreviewResult> {
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
 
   let sample: VideoSample | null = null;
@@ -19,7 +22,7 @@ export async function generatePreview(file: File, lut: ParsedCubeLut): Promise<P
     if (!videoTrack) throw new Error('Aucune piste vidéo trouvée dans ce fichier.');
 
     const duration = await input.computeDuration();
-    const previewTimestamp = Math.min(1, duration / 2);
+    const previewTimestamp = timestamp ?? Math.min(1, duration / 2);
 
     // Voir le commentaire équivalent dans videoProcessor.ts au sujet du choix de 'no-preference'.
     const sink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'no-preference' });
@@ -40,7 +43,7 @@ export async function generatePreview(file: File, lut: ParsedCubeLut): Promise<P
     frameProcessor.setLut(lut);
     await frameProcessor.process(sample);
 
-    return { beforeCanvas, afterCanvas: frameProcessor.outputCanvas };
+    return { beforeCanvas, afterCanvas: frameProcessor.outputCanvas, duration };
   } finally {
     sample?.close();
     frameProcessor?.dispose();

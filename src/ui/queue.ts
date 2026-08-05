@@ -16,6 +16,7 @@ export class ProcessingQueue {
   private readonly itemElements = new Map<string, HTMLElement>();
   private readonly items = new Map<string, QueueItem>();
   private onRenameCallback: ((id: string, newName: string) => void) | null = null;
+  private onRemoveCallback: ((id: string) => void) | null = null;
 
   constructor() {
     this.element = document.createElement('ul');
@@ -25,6 +26,11 @@ export class ProcessingQueue {
   /** Appelé à chaque frappe dans le champ de nom d'un élément (id, nouvelle valeur). */
   onRename(callback: (id: string, newName: string) => void): void {
     this.onRenameCallback = callback;
+  }
+
+  /** Appelé quand l'utilisateur supprime un élément de la file (id). La ligne est déjà retirée du DOM. */
+  onRemove(callback: (id: string) => void): void {
+    this.onRemoveCallback = callback;
   }
 
   addItem(item: QueueItem): void {
@@ -57,11 +63,23 @@ export class ProcessingQueue {
       if (current?.blob) downloadBlob(current.blob, nameInput.value.trim() || current.fileName);
     });
 
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'queue-item__remove button button--ghost';
+    removeButton.textContent = 'Supprimer';
+    removeButton.title = 'Retirer cette vidéo de la file';
+    removeButton.addEventListener('click', () => {
+      this.itemElements.delete(item.id);
+      this.items.delete(item.id);
+      listItem.remove();
+      this.onRemoveCallback?.(item.id);
+    });
+
     const progress = document.createElement('progress');
     progress.className = 'queue-item__progress';
     progress.max = 100;
 
-    row.append(nameInput, status, downloadButton);
+    row.append(nameInput, status, downloadButton, removeButton);
     listItem.append(row, progress);
     this.itemElements.set(item.id, listItem);
     this.element.appendChild(listItem);
@@ -85,6 +103,9 @@ export class ProcessingQueue {
 
     const downloadButton = listItem.querySelector('.queue-item__download') as HTMLButtonElement;
     downloadButton.hidden = !(item.status === 'done' && item.blob);
+
+    const removeButton = listItem.querySelector('.queue-item__remove') as HTMLButtonElement;
+    removeButton.disabled = item.status === 'processing';
   }
 }
 

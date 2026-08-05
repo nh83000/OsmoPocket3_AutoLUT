@@ -13,6 +13,7 @@ import {
   VideoSampleSink,
   VideoSampleSource,
   type InputAudioTrack,
+  type InputVideoTrack,
 } from 'mediabunny';
 import { FrameProcessor } from '../color/frameProcessor';
 import type { ParsedCubeLut } from '../lut/cubeParser';
@@ -48,6 +49,12 @@ const MINIMUM_OUTPUT_BITRATE = 20_000_000;
 /** On vise au moins le bitrate source, avec 10% de marge, pour ne jamais recompresser plus fort que l'original. */
 const BITRATE_HEADROOM = 1.1;
 
+/** Partagé avec clipPreview.ts pour que les extraits d'aperçu utilisent la même politique de bitrate. */
+export async function computeTargetBitrate(videoTrack: InputVideoTrack): Promise<number> {
+  const sourceBitrate = (await videoTrack.getAverageBitrate()) ?? (await videoTrack.getBitrate()) ?? MINIMUM_OUTPUT_BITRATE;
+  return Math.max(sourceBitrate * BITRATE_HEADROOM, MINIMUM_OUTPUT_BITRATE);
+}
+
 export async function processVideo(options: ProcessVideoOptions): Promise<ProcessVideoResult> {
   const { file, lut, onProgress } = options;
 
@@ -68,8 +75,7 @@ export async function processVideo(options: ProcessVideoOptions): Promise<Proces
     const target = new BufferTarget();
     output = new Output({ format: new Mp4OutputFormat(), target });
 
-    const sourceBitrate = (await videoTrack.getAverageBitrate()) ?? (await videoTrack.getBitrate()) ?? MINIMUM_OUTPUT_BITRATE;
-    const targetBitrate = Math.max(sourceBitrate * BITRATE_HEADROOM, MINIMUM_OUTPUT_BITRATE);
+    const targetBitrate = await computeTargetBitrate(videoTrack);
 
     const videoSource = new VideoSampleSource({
       codec: 'avc',

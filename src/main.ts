@@ -1,4 +1,5 @@
 import { parseCubeLut, type ParsedCubeLut } from './lut/cubeParser';
+import { generateClipPreview } from './pipeline/clipPreview';
 import { UnsupportedVideoError, buildOutputFileName, processVideo } from './pipeline/videoProcessor';
 import { VideoDropzone } from './ui/dropzone';
 import { LutSelector, type LutOption } from './ui/lutSelector';
@@ -30,7 +31,22 @@ async function loadBuiltInLuts(): Promise<LutOption[]> {
 }
 
 type PendingEntry = { file: File; item: QueueItem };
-type PreviewEntry = { file: File; nameElement: HTMLElement; beforeFigure: HTMLElement; afterFigure: HTMLElement };
+
+type PreviewEntry = {
+  file: File;
+  card: HTMLElement;
+  nameElement: HTMLElement;
+  beforeFigure: HTMLElement;
+  afterFigure: HTMLElement;
+  timelineInput: HTMLInputElement;
+  clipButton: HTMLButtonElement;
+  clipStatus: HTMLElement;
+  clipVideo: HTMLVideoElement;
+  /** Durée totale de la vidéo, en secondes. 0 tant qu'elle n'a pas encore été découverte. */
+  duration: number;
+  /** Position actuellement prévisualisée (curseur + extrait), en secondes. */
+  timestamp: number;
+};
 
 async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
@@ -46,7 +62,7 @@ async function main(): Promise<void> {
   const dropzone = new VideoDropzone();
   const queue = new ProcessingQueue();
 
-  const previewSection = buildStep('2', 'Aperçu avant/après');
+  const previewSection = buildStep('2', 'Aperçu');
   previewSection.hidden = true;
   const previewScroll = document.createElement('div');
   previewScroll.className = 'preview-scroll';
@@ -75,6 +91,18 @@ async function main(): Promise<void> {
   const previewEntries = new Map<string, PreviewEntry>();
   let isProcessing = false;
 
+  // Toutes les demandes de rendu d'aperçu (dépôt, changement de LUT, déplacement du curseur) passent
+  // par cette chaîne pour rester séquentielles : chaque aperçu ouvre temporairement son propre
+  // contexte WebGL, et le navigateur en limite le nombre simultané (~8-16). Sans sérialisation, deux
+  // déclencheurs concurrents (ex. dépôt pendant qu'un changement de LUT régénère déjà tout) pourraient
+  // en ouvrir trop à la fois.
+  let previewRenderChain: Promise<void> = Promise.resolve();
+  const scheduleRenderPreviews = (entries: PreviewEntry[], lut: ParsedCubeLut): void => {
+    previewRenderChain = previewRenderChain
+      .then(() => renderPreviews(entries, lut))
+      .catch((error) => console.error('Erreur lors du rendu des aperçus :', error));
+  };
+
   const refreshStartButton = (): void => {
     startButton.disabled = isProcessing || pending.size === 0;
     startButton.textContent = isProcessing ? 'Traitement en cours…' : 'Lancer le traitement';
@@ -93,23 +121,29 @@ async function main(): Promise<void> {
       queue.addItem(item);
       pending.set(item.id, { file, item });
 
-      const { card, nameElement, beforeFigure, afterFigure } = buildPreviewCard(item.fileName);
-      previewScroll.appendChild(card);
-      const previewEntry: PreviewEntry = { file, nameElement, beforeFigure, afterFigure };
+      const built = buildPreviewCard(item.fileName);
+      previewScroll.appendChild(built.card);
+      const previewEntry: PreviewEntry = { file, duration: 0, timestamp: 0, ...built };
       previewEntries.set(item.id, previewEntry);
       newPreviewEntries.push(previewEntry);
+
+      built.timelineInput.addEventListener('change', () => {
+        previewEntry.timestamp = Number(built.timelineInput.value);
+        scheduleRenderPreviews([previewEntry], lutSelector.selectedLut);
+      });
+
+      built.clipButton.addEventListener('click', () => {
+        void generateClip(previewEntry, lutSelector.selectedLut);
+      });
     }
 
     previewSection.hidden = false;
-    // Rendu séquentiel, pas concurrent : chaque aperçu ouvre temporairement son propre contexte
-    // WebGL, et le navigateur en limite le nombre simultané (~8-16). Avec plusieurs fichiers déposés
-    // d'un coup, les traiter un par un évite de dépasser cette limite.
-    void renderPreviews(newPreviewEntries, lutSelector.selectedLut);
+    scheduleRenderPreviews(newPreviewEntries, lutSelector.selectedLut);
     refreshStartButton();
   });
 
   lutSelector.onChange((lut) => {
-    void renderPreviews([...previewEntries.values()], lut);
+    scheduleRenderPreviews([...previewEntries.values()], lut);
   });
 
   // Le nom modifiable dans la file (étape 3) fait foi ; on le répercute au-dessus de l'aperçu
@@ -120,6 +154,19 @@ async function main(): Promise<void> {
       previewEntry.nameElement.textContent = newName;
       previewEntry.nameElement.title = newName;
     }
+  });
+
+  // Retirer une vidéo ajoutée par erreur : la ligne de file est déjà supprimée par ProcessingQueue,
+  // il reste à l'enlever des fichiers en attente et à retirer sa carte d'aperçu.
+  queue.onRemove((id) => {
+    pending.delete(id);
+    const previewEntry = previewEntries.get(id);
+    if (previewEntry) {
+      if (previewEntry.clipVideo.src) URL.revokeObjectURL(previewEntry.clipVideo.src);
+      previewEntry.card.remove();
+    }
+    previewEntries.delete(id);
+    refreshStartButton();
   });
 
   startButton.addEventListener('click', () => {
@@ -148,9 +195,16 @@ function buildStep(number: string, title: string, ...children: HTMLElement[]): H
   return section;
 }
 
-function buildPreviewCard(
-  fileName: string,
-): { card: HTMLElement; nameElement: HTMLElement; beforeFigure: HTMLElement; afterFigure: HTMLElement } {
+function buildPreviewCard(fileName: string): {
+  card: HTMLElement;
+  nameElement: HTMLElement;
+  beforeFigure: HTMLElement;
+  afterFigure: HTMLElement;
+  timelineInput: HTMLInputElement;
+  clipButton: HTMLButtonElement;
+  clipStatus: HTMLElement;
+  clipVideo: HTMLVideoElement;
+} {
   const card = document.createElement('div');
   card.className = 'preview-card';
 
@@ -165,8 +219,36 @@ function buildPreviewCard(
   const afterFigure = buildPreviewFigure('Après');
   row.append(beforeFigure, afterFigure);
 
-  card.append(nameElement, row);
-  return { card, nameElement, beforeFigure, afterFigure };
+  const timelineInput = document.createElement('input');
+  timelineInput.type = 'range';
+  timelineInput.className = 'preview-clip__timeline';
+  timelineInput.disabled = true;
+  timelineInput.title = "Position à prévisualiser dans la vidéo";
+
+  const clipButton = document.createElement('button');
+  clipButton.type = 'button';
+  clipButton.className = 'preview-clip__button button button--ghost';
+  clipButton.textContent = 'Générer un extrait vidéo';
+  clipButton.disabled = true;
+
+  const clipStatus = document.createElement('span');
+  clipStatus.className = 'preview-clip__status';
+
+  const clipActions = document.createElement('div');
+  clipActions.className = 'preview-clip__actions';
+  clipActions.append(clipButton, clipStatus);
+
+  const clipVideo = document.createElement('video');
+  clipVideo.className = 'preview-clip__video';
+  clipVideo.controls = true;
+  clipVideo.hidden = true;
+
+  const clipSection = document.createElement('div');
+  clipSection.className = 'preview-clip';
+  clipSection.append(timelineInput, clipActions, clipVideo);
+
+  card.append(nameElement, row, clipSection);
+  return { card, nameElement, beforeFigure, afterFigure, timelineInput, clipButton, clipStatus, clipVideo };
 }
 
 function buildPreviewFigure(label: string): HTMLElement {
@@ -187,12 +269,49 @@ function setPreviewFigureCanvas(figure: HTMLElement, canvas: HTMLCanvasElement):
 async function renderPreviews(entries: PreviewEntry[], lut: ParsedCubeLut): Promise<void> {
   for (const entry of entries) {
     try {
-      const { beforeCanvas, afterCanvas } = await generatePreview(entry.file, lut);
+      const isFirstRender = entry.duration === 0;
+      const { beforeCanvas, afterCanvas, duration } = await generatePreview(
+        entry.file,
+        lut,
+        isFirstRender ? undefined : entry.timestamp,
+      );
       setPreviewFigureCanvas(entry.beforeFigure, toDisplayCanvas(beforeCanvas));
       setPreviewFigureCanvas(entry.afterFigure, toDisplayCanvas(afterCanvas));
+
+      if (isFirstRender) {
+        // Première génération réussie : la durée réelle est connue, on peut activer le curseur et le
+        // positionner au milieu de la vidéo (au lieu du point fixe utilisé avant que la durée soit
+        // connue).
+        entry.duration = duration;
+        entry.timestamp = Math.max(0, Math.min(duration / 2, Math.max(duration - 0.1, 0)));
+        entry.timelineInput.min = '0';
+        entry.timelineInput.max = duration.toFixed(2);
+        entry.timelineInput.step = '0.1';
+        entry.timelineInput.value = entry.timestamp.toFixed(2);
+        entry.timelineInput.disabled = false;
+        entry.clipButton.disabled = false;
+      }
     } catch (error) {
       console.error(`Aperçu impossible pour "${entry.file.name}" :`, error);
     }
+  }
+}
+
+async function generateClip(entry: PreviewEntry, lut: ParsedCubeLut): Promise<void> {
+  entry.clipButton.disabled = true;
+  entry.clipStatus.textContent = 'Génération en cours…';
+
+  try {
+    const blob = await generateClipPreview({ file: entry.file, lut, startTime: entry.timestamp });
+    if (entry.clipVideo.src) URL.revokeObjectURL(entry.clipVideo.src);
+    entry.clipVideo.src = URL.createObjectURL(blob);
+    entry.clipVideo.hidden = false;
+    entry.clipStatus.textContent = '';
+  } catch (error) {
+    entry.clipStatus.textContent = `Erreur : ${(error as Error).message}`;
+    console.error(`Extrait impossible pour "${entry.file.name}" :`, error);
+  } finally {
+    entry.clipButton.disabled = false;
   }
 }
 
