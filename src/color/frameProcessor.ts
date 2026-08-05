@@ -86,17 +86,26 @@ export class FrameProcessor {
   async process(sample: VideoSample): Promise<void> {
     if (!this.lutTexture) throw new Error('Aucun LUT chargé : appeler setLut() avant process().');
 
-    if (sample.format === null) {
-      // Frame opaque (donnée lisible uniquement côté GPU) : impossible d'extraire les plans Y/U/V à la
-      // main sur cette machine. On délègue la conversion YUV→RGB au navigateur via texImage2D plutôt
-      // que d'échouer complètement — voir RGBA_FRAGMENT_SHADER_SOURCE. Signalé à l'appelant via
-      // `usedFallbackPath` pour que l'UI informe l'utilisateur que ce fichier a pris ce chemin.
+    try {
+      await this.processPreciseFrame(sample);
+      this.lastFrameUsedFallback = false;
+    } catch (error) {
+      // Couvre à la fois les frames opaques (format === null, donnée lisible uniquement côté GPU) et
+      // les frames dont le format natif refuse la conversion demandée (ex. NV12 matériel non convertible
+      // vers I420 sur ce navigateur) : dans les deux cas, `copyTo()`/`allocationSize()` échouent avant
+      // tout rendu GPU (voir `processPreciseFrame`), donc rien n'a encore été dessiné — on peut basculer
+      // sans risque vers le chemin de secours RGBA (texImage2D), qui laisse le navigateur gérer la
+      // conversion en interne. Signalé à l'appelant via `usedFallbackPath`.
+      console.warn(
+        "Extraction précise des plans YUV impossible pour cette frame, bascule vers le mode de compatibilité couleur :",
+        error,
+      );
       this.lastFrameUsedFallback = true;
       this.processOpaqueFrame(sample);
-      return;
     }
-    this.lastFrameUsedFallback = false;
+  }
 
+  private async processPreciseFrame(sample: VideoSample): Promise<void> {
     const lumaBitDepth = detectSourceBitDepth(sample.format);
     // mediabunny's own `VideoSample.format` is typed with its richer `VideoSamplePixelFormat` union
     // (which includes 'I420P10'/'I420P12' for high-bit-depth samples), but `copyTo()`/`allocationSize()`
