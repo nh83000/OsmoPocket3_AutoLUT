@@ -5,7 +5,14 @@ export class VideoDropzone {
   constructor() {
     this.element = document.createElement('div');
     this.element.className = 'dropzone';
-    this.element.textContent = 'Glissez vos fichiers .mp4 ici, ou cliquez pour en choisir.';
+    this.element.innerHTML =
+      '<svg class="dropzone__icon" width="32" height="32" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.5" aria-hidden="true">' +
+      '<path d="M12 16V4M12 4L7 9M12 4l5 5" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '</svg>' +
+      '<p class="dropzone__title">Glissez vos fichiers .mp4 ici</p>' +
+      '<p class="dropzone__hint">ou cliquez pour en choisir</p>';
 
     const fileInput = document.createElement('input');
     fileInput.type = 'file';

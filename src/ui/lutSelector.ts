@@ -19,20 +19,26 @@ export class LutSelector {
     this.element.className = 'lut-selector';
 
     this.select = document.createElement('select');
+    this.select.className = 'lut-selector__select';
     this.select.addEventListener('change', () => {
       const option = this.options[this.select.selectedIndex];
       if (option) this.onChangeCallback?.(option.lut);
     });
 
-    const addButton = document.createElement('button');
-    addButton.type = 'button';
-    addButton.textContent = 'Ajouter un LUT (.cube)';
-    addButton.addEventListener('click', () => this.fileInput.click());
+    const actions = document.createElement('div');
+    actions.className = 'lut-selector__actions';
 
     const renameButton = document.createElement('button');
     renameButton.type = 'button';
+    renameButton.className = 'button button--ghost';
     renameButton.textContent = 'Renommer';
     renameButton.addEventListener('click', () => this.renameSelected());
+
+    const addButton = document.createElement('button');
+    addButton.type = 'button';
+    addButton.className = 'button button--ghost';
+    addButton.textContent = '+ Ajouter un LUT (.cube)';
+    addButton.addEventListener('click', () => this.fileInput.click());
 
     this.fileInput = document.createElement('input');
     this.fileInput.type = 'file';
@@ -40,7 +46,8 @@ export class LutSelector {
     this.fileInput.hidden = true;
     this.fileInput.addEventListener('change', () => void this.handleFileSelected());
 
-    this.element.append(this.select, renameButton, addButton, this.fileInput);
+    actions.append(renameButton, addButton);
+    this.element.append(this.select, actions, this.fileInput);
     this.renderOptions();
   }
 

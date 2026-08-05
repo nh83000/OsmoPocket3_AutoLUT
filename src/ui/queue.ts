@@ -25,6 +25,9 @@ export class ProcessingQueue {
     const listItem = document.createElement('li');
     listItem.className = 'queue-item';
 
+    const row = document.createElement('div');
+    row.className = 'queue-item__row';
+
     // Champ libre plutôt qu'un simple libellé : l'utilisateur peut renommer le fichier de sortie à
     // tout moment (avant ou après traitement). C'est cette valeur, pas `item.fileName`, qui fait
     // foi au moment du téléchargement — `updateItem()` ne la réécrit donc jamais après coup.
@@ -34,16 +37,12 @@ export class ProcessingQueue {
     nameInput.value = item.fileName;
     nameInput.title = 'Nom du fichier à télécharger';
 
-    const progress = document.createElement('progress');
-    progress.className = 'queue-item__progress';
-    progress.max = 100;
-
     const status = document.createElement('span');
-    status.className = 'queue-item__status';
+    status.className = 'queue-item__status badge';
 
     const downloadButton = document.createElement('button');
     downloadButton.type = 'button';
-    downloadButton.className = 'queue-item__download';
+    downloadButton.className = 'queue-item__download button button--accent';
     downloadButton.textContent = 'Télécharger';
     downloadButton.hidden = true;
     downloadButton.addEventListener('click', () => {
@@ -51,7 +50,12 @@ export class ProcessingQueue {
       if (current?.blob) downloadBlob(current.blob, nameInput.value.trim() || current.fileName);
     });
 
-    listItem.append(nameInput, progress, status, downloadButton);
+    const progress = document.createElement('progress');
+    progress.className = 'queue-item__progress';
+    progress.max = 100;
+
+    row.append(nameInput, status, downloadButton);
+    listItem.append(row, progress);
     this.itemElements.set(item.id, listItem);
     this.element.appendChild(listItem);
     this.updateItem(item);
@@ -64,8 +68,11 @@ export class ProcessingQueue {
 
     const progressElement = listItem.querySelector('.queue-item__progress') as HTMLProgressElement;
     progressElement.value = Math.round(item.progress * 100);
+    progressElement.hidden = item.status !== 'processing';
 
-    listItem.querySelector('.queue-item__status')!.textContent = describeStatus(item);
+    const statusElement = listItem.querySelector('.queue-item__status')!;
+    statusElement.textContent = describeStatus(item);
+    statusElement.className = `queue-item__status badge badge--${item.status}`;
     listItem.classList.toggle('queue-item--error', item.status === 'error');
     listItem.classList.toggle('queue-item--done', item.status === 'done');
 

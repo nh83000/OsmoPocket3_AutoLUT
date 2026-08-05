@@ -35,19 +35,34 @@ async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('#app introuvable dans index.html.');
 
+  const header = document.createElement('header');
+  header.className = 'app-header';
+  header.innerHTML =
+    '<h1>Convertisseur LUT — DJI Osmo Pocket 3</h1>' +
+    '<p class="app-header__subtitle">Tout se passe dans votre navigateur : rien n\'est envoyé sur internet.</p>';
+
   const lutSelector = new LutSelector(await loadBuiltInLuts());
   const dropzone = new VideoDropzone();
   const queue = new ProcessingQueue();
+
+  const previewSection = buildStep('2', 'Aperçu avant/après');
+  previewSection.hidden = true;
   const previewContainer = document.createElement('div');
   previewContainer.className = 'preview';
+  previewSection.appendChild(previewContainer);
 
   const startButton = document.createElement('button');
   startButton.type = 'button';
-  startButton.className = 'start-button';
+  startButton.className = 'button button--primary start-button';
   startButton.textContent = 'Lancer le traitement';
   startButton.disabled = true;
 
-  app.append(lutSelector.element, dropzone.element, previewContainer, startButton, queue.element);
+  app.append(
+    header,
+    buildStep('1', 'Choisir un LUT et déposer vos vidéos', lutSelector.element, dropzone.element),
+    previewSection,
+    buildStep('3', 'Traiter et télécharger', startButton, queue.element),
+  );
 
   // Fichiers déposés mais pas encore traités : le traitement ne démarre plus automatiquement, il
   // faut cliquer sur `startButton`. Une entrée quitte cette file dès qu'elle est prise en charge,
@@ -61,7 +76,7 @@ async function main(): Promise<void> {
   };
 
   dropzone.onFiles((files) => {
-    void showPreview(files[0]!, lutSelector.selectedLut, previewContainer);
+    void showPreview(files[0]!, lutSelector.selectedLut, previewContainer, previewSection);
 
     for (const file of files) {
       const item: QueueItem = {
@@ -89,13 +104,47 @@ async function main(): Promise<void> {
   });
 }
 
-async function showPreview(file: File, lut: ParsedCubeLut, previewContainer: HTMLElement): Promise<void> {
+function buildStep(number: string, title: string, ...children: HTMLElement[]): HTMLElement {
+  const section = document.createElement('section');
+  section.className = 'step';
+
+  const heading = document.createElement('h2');
+  heading.className = 'step__heading';
+  const badge = document.createElement('span');
+  badge.className = 'step__number';
+  badge.textContent = number;
+  heading.append(badge, title);
+
+  section.append(heading, ...children);
+  return section;
+}
+
+async function showPreview(
+  file: File,
+  lut: ParsedCubeLut,
+  previewContainer: HTMLElement,
+  previewSection: HTMLElement,
+): Promise<void> {
   try {
     const { beforeCanvas, afterCanvas } = await generatePreview(file, lut);
-    previewContainer.replaceChildren(toDisplayCanvas(beforeCanvas), toDisplayCanvas(afterCanvas));
+    previewContainer.replaceChildren(
+      buildPreviewFigure('Avant', toDisplayCanvas(beforeCanvas)),
+      buildPreviewFigure('Après', toDisplayCanvas(afterCanvas)),
+    );
+    previewSection.hidden = false;
   } catch (error) {
     console.error('Aperçu impossible :', error);
   }
+}
+
+function buildPreviewFigure(label: string, canvas: HTMLCanvasElement): HTMLElement {
+  const figure = document.createElement('figure');
+  figure.className = 'preview__figure';
+  const caption = document.createElement('figcaption');
+  caption.className = 'preview__caption';
+  caption.textContent = label;
+  figure.append(caption, canvas);
+  return figure;
 }
 
 async function processPending(pending: Map<string, PendingEntry>, queue: ProcessingQueue): Promise<void> {
