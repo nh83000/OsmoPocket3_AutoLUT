@@ -2,6 +2,8 @@
 import { ALL_FORMATS, BlobSource, Input, VideoSample, VideoSampleSink } from 'mediabunny';
 import { FrameProcessor } from '../color/frameProcessor';
 import type { ParsedCubeLut } from '../lut/cubeParser';
+import { checkVideoTrackSupport } from '../pipeline/hevcSupport';
+import { UnsupportedVideoError } from '../pipeline/videoProcessor';
 
 export type PreviewResult = {
   beforeCanvas: HTMLCanvasElement;
@@ -20,6 +22,9 @@ export async function generatePreview(file: File, lut: ParsedCubeLut, timestamp?
   try {
     const videoTrack = await input.getPrimaryVideoTrack();
     if (!videoTrack) throw new Error('Aucune piste vidéo trouvée dans ce fichier.');
+
+    const support = await checkVideoTrackSupport(videoTrack);
+    if (!support.supported) throw new UnsupportedVideoError(support.message);
 
     const duration = await input.computeDuration();
     const previewTimestamp = timestamp ?? Math.min(1, duration / 2);

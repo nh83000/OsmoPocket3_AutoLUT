@@ -249,6 +249,15 @@ body {
   font-weight: 600;
 }
 
+.preview-card__error {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+  background: var(--color-error-bg);
+  color: var(--color-error);
+  font-size: 0.85rem;
+}
+
 .preview {
   display: flex;
   gap: 1rem;

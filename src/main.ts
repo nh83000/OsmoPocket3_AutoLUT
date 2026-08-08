@@ -41,6 +41,7 @@ type PreviewEntry = {
   clipButton: HTMLButtonElement;
   clipStatus: HTMLElement;
   clipVideo: HTMLVideoElement;
+  errorElement: HTMLElement;
   duration: number; // 0 tant que pas encore connue
   timestamp: number;
 };
@@ -188,6 +189,7 @@ function buildPreviewCard(fileName: string): {
   clipButton: HTMLButtonElement;
   clipStatus: HTMLElement;
   clipVideo: HTMLVideoElement;
+  errorElement: HTMLElement;
 } {
   const card = document.createElement('div');
   card.className = 'preview-card';
@@ -196,6 +198,10 @@ function buildPreviewCard(fileName: string): {
   nameElement.className = 'preview-card__name';
   nameElement.textContent = fileName;
   nameElement.title = fileName;
+
+  const errorElement = document.createElement('p');
+  errorElement.className = 'preview-card__error';
+  errorElement.hidden = true;
 
   const row = document.createElement('div');
   row.className = 'preview';
@@ -231,8 +237,8 @@ function buildPreviewCard(fileName: string): {
   clipSection.className = 'preview-clip';
   clipSection.append(timelineInput, clipActions, clipVideo);
 
-  card.append(nameElement, row, clipSection);
-  return { card, nameElement, beforeFigure, afterFigure, timelineInput, clipButton, clipStatus, clipVideo };
+  card.append(nameElement, errorElement, row, clipSection);
+  return { card, nameElement, beforeFigure, afterFigure, timelineInput, clipButton, clipStatus, clipVideo, errorElement };
 }
 
 function buildPreviewFigure(label: string): HTMLElement {
@@ -261,6 +267,7 @@ async function renderPreviews(entries: PreviewEntry[], lut: ParsedCubeLut): Prom
       );
       setPreviewFigureCanvas(entry.beforeFigure, toDisplayCanvas(beforeCanvas));
       setPreviewFigureCanvas(entry.afterFigure, toDisplayCanvas(afterCanvas));
+      entry.errorElement.hidden = true;
 
       if (isFirstRender) {
         entry.duration = duration;
@@ -274,6 +281,8 @@ async function renderPreviews(entries: PreviewEntry[], lut: ParsedCubeLut): Prom
       }
     } catch (error) {
       console.error(`Aperçu impossible pour "${entry.file.name}" :`, error);
+      entry.errorElement.textContent = error instanceof Error ? error.message : 'Aperçu impossible pour cette vidéo.';
+      entry.errorElement.hidden = false;
     }
   }
 }
