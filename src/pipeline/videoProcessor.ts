@@ -1,0 +1,195 @@
+// src/pipeline/videoProcessor.ts
+import {
+  ALL_FORMATS,
+  BlobSource,
+  BufferTarget,
+  EncodedAudioPacketSource,
+  EncodedPacketSink,
+  Input,
+  Mp4OutputFormat,
+  Output,
+  Quality,
+  VideoSample,
+  VideoSampleSink,
+  VideoSampleSource,
+  type InputAudioTrack,
+  type InputVideoTrack,
+} from 'mediabunny';
+import { FrameProcessor } from '../color/frameProcessor';
+import type { ParsedCubeLut } from '../lut/cubeParser';
+import { checkVideoTrackSupport } from './hevcSupport';
+
+export class UnsupportedVideoError extends Error {}
+
+export type ProcessingProgress = {
+  processedFrames: number;
+  totalFrames: number | null;
+};
+
+export type ProcessVideoOptions = {
+  file: File;
+  lut: ParsedCubeLut;
+  onProgress?: (progress: ProcessingProgress) => void;
+};
+
+export type ProcessVideoResult = {
+  blob: Blob;
+  fileName: string;
+  /** `true` si une piste audio source existait mais n'a pas pu être copiée (codec inconnu, par ex.). */
+  audioDropped: boolean;
+  /**
+   * `true` si le décodage matériel a fourni des frames illisibles côté CPU sur cette machine : la
+   * conversion YUV→RGB a été déléguée au navigateur (chemin de secours) au lieu du pipeline de
+   * précision habituel. Voir `FrameProcessor.usedFallbackPath`.
+   */
+  colorPipelineFallback: boolean;
+};
+
+const MINIMUM_OUTPUT_BITRATE = 20_000_000;
+/** On vise au moins le bitrate source, avec 10% de marge, pour ne jamais recompresser plus fort que l'original. */
+const BITRATE_HEADROOM = 1.1;
+
+/** Partagé avec clipPreview.ts pour que les extraits d'aperçu utilisent la même politique de bitrate. */
+export async function computeTargetBitrate(videoTrack: InputVideoTrack): Promise<number> {
+  const sourceBitrate = (await videoTrack.getAverageBitrate()) ?? (await videoTrack.getBitrate()) ?? MINIMUM_OUTPUT_BITRATE;
+  return Math.max(sourceBitrate * BITRATE_HEADROOM, MINIMUM_OUTPUT_BITRATE);
+}
+
+export async function processVideo(options: ProcessVideoOptions): Promise<ProcessVideoResult> {
+  const { file, lut, onProgress } = options;
+
+  const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+
+  let frameProcessor: FrameProcessor | undefined;
+  let output: Output | undefined;
+
+  try {
+    const videoTrack = await input.getPrimaryVideoTrack();
+    if (!videoTrack) throw new Error('Aucune piste vidéo trouvée dans ce fichier.');
+
+    const support = await checkVideoTrackSupport(videoTrack);
+    if (!support.supported) throw new UnsupportedVideoError(support.message);
+
+    const audioTrack = await input.getPrimaryAudioTrack();
+
+    const target = new BufferTarget();
+    output = new Output({ format: new Mp4OutputFormat(), target });
+
+    const targetBitrate = await computeTargetBitrate(videoTrack);
+
+    const videoSource = new VideoSampleSource({
+      codec: 'avc',
+      quality: new Quality({ bitrate: targetBitrate, bitrateMode: 'variable' }),
+    });
+    output.addVideoTrack(videoSource, { rotation: await videoTrack.getRotation() });
+
+    let audioPacketSource: EncodedAudioPacketSource | null = null;
+    let audioDone: Promise<void> = Promise.resolve();
+    let audioDropped = false;
+    if (audioTrack) {
+      const audioCodec = await audioTrack.getCodec();
+      if (audioCodec) {
+        audioPacketSource = new EncodedAudioPacketSource(audioCodec);
+        output.addAudioTrack(audioPacketSource);
+        audioDone = copyAudioPackets(audioTrack, new EncodedPacketSink(audioTrack), audioPacketSource);
+      } else {
+        audioDropped = true;
+        console.warn(`Piste audio ignorée : codec non reconnu pour "${file.name}".`);
+      }
+    }
+
+    await output.start();
+
+    const width = await videoTrack.getCodedWidth();
+    const height = await videoTrack.getCodedHeight();
+    frameProcessor = new FrameProcessor(width, height);
+    frameProcessor.setLut(lut);
+
+    // 'no-preference' (le défaut recommandé par mediabunny) laisse le navigateur choisir la voie de
+    // décodage : le HEVC n'a pas de décodeur logiciel dans Chrome/Edge (licence), donc forcer
+    // 'prefer-software' casse totalement le décodage, tandis que forcer 'prefer-hardware' peut, sur
+    // certains GPU/pilotes, produire des VideoFrame avec format === null (illisibles via copyTo()).
+    const videoSampleSink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'no-preference' });
+    const stats = await videoTrack.computePacketStats(200);
+    const duration = await input.computeDuration();
+    const estimatedTotalFrames = Math.round(stats.averagePacketRate * duration);
+
+    let processedFrames = 0;
+    let colorPipelineFallback = false;
+    for await (const sample of videoSampleSink.samples()) {
+      try {
+        await frameProcessor.process(sample);
+        if (frameProcessor.usedFallbackPath && !colorPipelineFallback) {
+          colorPipelineFallback = true;
+          console.warn(
+            `Décodage matériel opaque détecté pour "${file.name}" : bascule automatique vers le mode de ` +
+              'compatibilité couleur (conversion YUV→RGB déléguée au navigateur, hors pipeline de précision habituel).',
+          );
+        }
+
+        const outputSample = new VideoSample(frameProcessor.outputCanvas, {
+          timestamp: sample.timestamp,
+          duration: sample.duration,
+          colorSpace: { primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: false },
+        });
+        try {
+          await videoSource.add(outputSample);
+        } finally {
+          outputSample.close();
+        }
+      } finally {
+        sample.close();
+      }
+
+      processedFrames++;
+      onProgress?.({
+        processedFrames,
+        totalFrames: Number.isFinite(estimatedTotalFrames) && estimatedTotalFrames > 0 ? estimatedTotalFrames : null,
+      });
+    }
+
+    videoSource.close();
+    await audioDone;
+    audioPacketSource?.close();
+
+    await output.finalize();
+
+    if (!target.buffer) throw new Error("La sortie n'a pas pu être générée.");
+
+    return {
+      blob: new Blob([target.buffer], { type: 'video/mp4' }),
+      fileName: buildOutputFileName(file.name),
+      audioDropped,
+      colorPipelineFallback,
+    };
+  } catch (error) {
+    await output?.cancel().catch(() => {});
+    throw error;
+  } finally {
+    frameProcessor?.dispose();
+    input.dispose();
+  }
+}
+
+async function copyAudioPackets(
+  audioTrack: InputAudioTrack,
+  sink: EncodedPacketSink,
+  source: EncodedAudioPacketSource,
+): Promise<void> {
+  let isFirstPacket = true;
+  for await (const packet of sink.packets()) {
+    if (isFirstPacket) {
+      const decoderConfig = await audioTrack.getDecoderConfig();
+      await source.add(packet, decoderConfig ? { decoderConfig } : undefined);
+      isFirstPacket = false;
+    } else {
+      await source.add(packet);
+    }
+  }
+}
+
+export function buildOutputFileName(originalName: string): string {
+  const dotIndex = originalName.lastIndexOf('.');
+  const base = dotIndex === -1 ? originalName : originalName.slice(0, dotIndex);
+  return `${base}_graded.mp4`;
+}
