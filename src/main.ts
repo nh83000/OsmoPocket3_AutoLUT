@@ -72,11 +72,18 @@ async function main(): Promise<void> {
   startButton.textContent = 'Lancer le traitement';
   startButton.disabled = true;
 
+  const processingWarning = document.createElement('p');
+  processingWarning.className = 'processing-warning';
+  processingWarning.textContent =
+    'Traitement en cours… reste sur cette page et ne la mets pas en arrière-plan jusqu\'à la fin, ' +
+    "sinon le navigateur peut l'interrompre.";
+  processingWarning.hidden = true;
+
   app.append(
     header,
     buildStep('1', 'Choisir un LUT et déposer vos vidéos', lutSelector.element, dropzone.element),
     previewSection,
-    buildStep('3', 'Traiter et télécharger', startButton, queue.element),
+    buildStep('3', 'Traiter et télécharger', startButton, processingWarning, queue.element),
   );
 
   const pending = new Map<string, PendingEntry>(); // fichiers en attente du clic sur "Lancer le traitement"
@@ -95,7 +102,14 @@ async function main(): Promise<void> {
   const refreshStartButton = (): void => {
     startButton.disabled = isProcessing || pending.size === 0;
     startButton.textContent = isProcessing ? 'Traitement en cours…' : 'Lancer le traitement';
+    processingWarning.hidden = !isProcessing;
   };
+
+  window.addEventListener('beforeunload', (event) => {
+    if (!isProcessing) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
 
   dropzone.onFiles((files) => {
     const newPreviewEntries: PreviewEntry[] = [];

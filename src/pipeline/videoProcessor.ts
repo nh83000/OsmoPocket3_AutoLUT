@@ -120,7 +120,9 @@ export async function processVideo(options: ProcessVideoOptions): Promise<Proces
         }
 
         const outputSample = new VideoSample(frameProcessor.outputCanvas, {
-          timestamp: sample.timestamp,
+          // Math.max(0, ...) : le réordonnancement B-frame peut donner un timestamp légèrement
+          // négatif sur les toutes premières images, ce que le muxeur de sortie refuse.
+          timestamp: Math.max(0, sample.timestamp),
           duration: sample.duration,
           colorSpace: { primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: false },
         });
@@ -169,7 +171,10 @@ async function copyAudioPackets(
   source: EncodedAudioPacketSource,
 ): Promise<void> {
   let isFirstPacket = true;
-  for await (const packet of sink.packets()) {
+  for await (const rawPacket of sink.packets()) {
+    // Certains codecs audio (AAC notamment) ont un délai d'amorçage qui donne un timestamp
+    // légèrement négatif sur les premiers paquets ; le muxeur de sortie refuse les valeurs négatives.
+    const packet = rawPacket.timestamp < 0 ? rawPacket.clone({ timestamp: 0 }) : rawPacket;
     if (isFirstPacket) {
       const decoderConfig = await audioTrack.getDecoderConfig();
       await source.add(packet, decoderConfig ? { decoderConfig } : undefined);
