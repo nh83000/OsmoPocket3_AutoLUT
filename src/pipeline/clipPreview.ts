@@ -28,7 +28,7 @@ export type ClipPreviewOptions = {
   clipDuration?: number;
 };
 
-const DEFAULT_CLIP_DURATION = 4;
+const DEFAULT_CLIP_DURATION = 10;
 
 /**
  * Génère un court extrait de la vidéo avec le LUT appliqué (image + son), pour un vrai aperçu en
