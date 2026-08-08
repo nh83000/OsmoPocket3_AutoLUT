@@ -24,14 +24,11 @@ export async function generatePreview(file: File, lut: ParsedCubeLut, timestamp?
     const duration = await input.computeDuration();
     const previewTimestamp = timestamp ?? Math.min(1, duration / 2);
 
-    // Voir le commentaire équivalent dans videoProcessor.ts au sujet du choix de 'no-preference'.
     const sink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'no-preference' });
     sample = await sink.getSample(previewTimestamp);
     if (!sample) throw new Error("Impossible d'extraire une image d'aperçu de cette vidéo.");
 
-    // "Avant" : rendu tel-quel via le chemin d'affichage standard du navigateur — c'est voulu ici,
-    // on veut montrer l'image plate D-Log M telle qu'elle apparaît normalement. Ce chemin n'est PAS
-    // utilisé pour le traitement réel (Task 7/9), qui lit les plans bruts pour préserver la précision.
+    // "Avant" : rendu brut tel qu'affiché normalement (image plate D-Log M), sans passer par le LUT.
     const beforeCanvas = document.createElement('canvas');
     beforeCanvas.width = await videoTrack.getDisplayWidth();
     beforeCanvas.height = await videoTrack.getDisplayHeight();

@@ -35,21 +35,16 @@ export type ProcessVideoOptions = {
 export type ProcessVideoResult = {
   blob: Blob;
   fileName: string;
-  /** `true` si une piste audio source existait mais n'a pas pu être copiée (codec inconnu, par ex.). */
+  /** true si une piste audio existait mais n'a pas pu être copiée (codec inconnu). */
   audioDropped: boolean;
-  /**
-   * `true` si le décodage matériel a fourni des frames illisibles côté CPU sur cette machine : la
-   * conversion YUV→RGB a été déléguée au navigateur (chemin de secours) au lieu du pipeline de
-   * précision habituel. Voir `FrameProcessor.usedFallbackPath`.
-   */
+  /** true si le mode de secours RGBA a été utilisé (voir FrameProcessor.usedFallbackPath). */
   colorPipelineFallback: boolean;
 };
 
 const MINIMUM_OUTPUT_BITRATE = 20_000_000;
-/** On vise au moins le bitrate source, avec 10% de marge, pour ne jamais recompresser plus fort que l'original. */
-const BITRATE_HEADROOM = 1.1;
+const BITRATE_HEADROOM = 1.1; // au moins le bitrate source + 10%
 
-/** Partagé avec clipPreview.ts pour que les extraits d'aperçu utilisent la même politique de bitrate. */
+// Partagé avec clipPreview.ts
 export async function computeTargetBitrate(videoTrack: InputVideoTrack): Promise<number> {
   const sourceBitrate = (await videoTrack.getAverageBitrate()) ?? (await videoTrack.getBitrate()) ?? MINIMUM_OUTPUT_BITRATE;
   return Math.max(sourceBitrate * BITRATE_HEADROOM, MINIMUM_OUTPUT_BITRATE);
@@ -105,10 +100,7 @@ export async function processVideo(options: ProcessVideoOptions): Promise<Proces
     frameProcessor = new FrameProcessor(width, height);
     frameProcessor.setLut(lut);
 
-    // 'no-preference' (le défaut recommandé par mediabunny) laisse le navigateur choisir la voie de
-    // décodage : le HEVC n'a pas de décodeur logiciel dans Chrome/Edge (licence), donc forcer
-    // 'prefer-software' casse totalement le décodage, tandis que forcer 'prefer-hardware' peut, sur
-    // certains GPU/pilotes, produire des VideoFrame avec format === null (illisibles via copyTo()).
+    // no-preference : forcer le logiciel casse le HEVC, forcer le matériel plante sur certains GPU.
     const videoSampleSink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'no-preference' });
     const stats = await videoTrack.computePacketStats(200);
     const duration = await input.computeDuration();

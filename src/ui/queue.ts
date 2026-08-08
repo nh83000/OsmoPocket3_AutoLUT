@@ -23,12 +23,10 @@ export class ProcessingQueue {
     this.element.className = 'queue';
   }
 
-  /** Appelé à chaque frappe dans le champ de nom d'un élément (id, nouvelle valeur). */
   onRename(callback: (id: string, newName: string) => void): void {
     this.onRenameCallback = callback;
   }
 
-  /** Appelé quand l'utilisateur supprime un élément de la file (id). La ligne est déjà retirée du DOM. */
   onRemove(callback: (id: string) => void): void {
     this.onRemoveCallback = callback;
   }
@@ -40,9 +38,6 @@ export class ProcessingQueue {
     const row = document.createElement('div');
     row.className = 'queue-item__row';
 
-    // Champ libre plutôt qu'un simple libellé : l'utilisateur peut renommer le fichier de sortie à
-    // tout moment (avant ou après traitement). C'est cette valeur, pas `item.fileName`, qui fait
-    // foi au moment du téléchargement — `updateItem()` ne la réécrit donc jamais après coup.
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
     nameInput.className = 'queue-item__name';

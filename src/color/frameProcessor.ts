@@ -29,11 +29,7 @@ type RgbaProgramBundle = {
   };
 };
 
-/**
- * La Pocket 3 ne produit que du H.264 8 bits ou du H.265 D-Log M 10 bits : on ne gère que ces deux
- * profondeurs. Un éventuel format 12 bits serait traité comme du 10 bits (perte négligeable, très
- * au-dessus de la précision de sortie 8 bits finale) plutôt que d'ajouter un troisième chemin.
- */
+// Que du 8 bits (H.264) ou du 10 bits (H.265 D-Log M) sur la Pocket 3 ; le 12 bits est traité comme du 10 bits.
 function detectSourceBitDepth(format: string | null): LumaBitDepth {
   return format !== null && (format.includes('P10') || format.includes('P12')) ? 10 : 8;
 }
@@ -90,12 +86,8 @@ export class FrameProcessor {
       await this.processPreciseFrame(sample);
       this.lastFrameUsedFallback = false;
     } catch (error) {
-      // Couvre à la fois les frames opaques (format === null, donnée lisible uniquement côté GPU) et
-      // les frames dont le format natif refuse la conversion demandée (ex. NV12 matériel non convertible
-      // vers I420 sur ce navigateur) : dans les deux cas, `copyTo()`/`allocationSize()` échouent avant
-      // tout rendu GPU (voir `processPreciseFrame`), donc rien n'a encore été dessiné — on peut basculer
-      // sans risque vers le chemin de secours RGBA (texImage2D), qui laisse le navigateur gérer la
-      // conversion en interne. Signalé à l'appelant via `usedFallbackPath`.
+      // copyTo()/allocationSize() peuvent échouer avant tout rendu GPU (frame opaque, ou conversion
+      // refusée par le navigateur) : rien n'est encore dessiné, on peut basculer sans risque en RGBA.
       console.warn(
         "Extraction précise des plans YUV impossible pour cette frame, bascule vers le mode de compatibilité couleur :",
         error,
@@ -107,13 +99,8 @@ export class FrameProcessor {
 
   private async processPreciseFrame(sample: VideoSample): Promise<void> {
     const lumaBitDepth = detectSourceBitDepth(sample.format);
-    // mediabunny's own `VideoSample.format` is typed with its richer `VideoSamplePixelFormat` union
-    // (which includes 'I420P10'/'I420P12' for high-bit-depth samples), but `copyTo()`/`allocationSize()`
-    // reuse the browser's native ambient `VideoFrameCopyToOptions.format: VideoPixelFormat` — the
-    // WebCodecs-spec union, which only covers 8-bit formats. This is a gap in mediabunny's public
-    // .d.ts (confirmed by reading node_modules/mediabunny/dist/modules/src/sample.d.ts), not a runtime
-    // restriction: 'I420P10' is a value mediabunny itself defines and documents. Cast once here to
-    // bridge the two types rather than fighting the type checker at every call site below.
+    // Cast nécessaire : le typage ambiant de copyTo()/allocationSize() ne connaît pas 'I420P10' (gap
+    // dans les types de mediabunny), alors que la valeur est bien supportée à l'exécution.
     const targetFormat = (lumaBitDepth === 8 ? 'I420' : 'I420P10') as unknown as VideoPixelFormat;
     const bundle = this.getOrCreateProgram(lumaBitDepth);
     const coefficients = resolveYuvToRgbCoefficients(sample.colorSpace);
@@ -166,12 +153,10 @@ export class FrameProcessor {
     gl.deleteVertexArray(this.vao);
   }
 
-  /** Chemin de secours pour les frames opaques : voir le commentaire dans `process()`. */
   private processOpaqueFrame(sample: VideoSample): void {
     const gl = this.gl;
 
-    // `toVideoFrame()` doit être fermée séparément du VideoSample source (doc mediabunny) ; on la
-    // ferme dès l'upload synchrone dans la texture, sa donnée n'est plus nécessaire ensuite.
+    // toVideoFrame() se ferme séparément du sample d'origine.
     const videoFrame = sample.toVideoFrame();
     try {
       gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture);

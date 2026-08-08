@@ -1,10 +1,6 @@
 import type { ParsedCubeLut } from '../lut/cubeParser';
 
-/**
- * Le format .cube stocke les lignes avec le rouge qui varie le plus vite, exactement l'ordre
- * attendu par une texture 3D WebGL (x = rouge, y = vert, z = bleu). RGBA16F est utilisé (plutôt
- * que RGB16F) car WebGL2 garantit son filtrage LINEAR nativement, sans extension.
- */
+// RGBA16F plutôt que RGB16F : WebGL2 garantit son filtrage LINEAR nativement, sans extension.
 export function createLutTexture(gl: WebGL2RenderingContext, lut: ParsedCubeLut): WebGLTexture {
   const texture = gl.createTexture();
   if (!texture) throw new Error('Impossible de créer la texture WebGL pour le LUT.');

@@ -30,11 +30,7 @@ export type ClipPreviewOptions = {
 
 const DEFAULT_CLIP_DURATION = 8;
 
-/**
- * Génère un court extrait de la vidéo avec le LUT appliqué (image + son), pour un vrai aperçu en
- * mouvement sans attendre le traitement complet du fichier. Réutilise le même pipeline de précision
- * couleur que `processVideo`, juste borné à une fenêtre temporelle.
- */
+// Extrait court avec LUT + son, même pipeline que processVideo mais borné à une fenêtre temporelle.
 export async function generateClipPreview(options: ClipPreviewOptions): Promise<Blob> {
   const { file, lut, clipDuration = DEFAULT_CLIP_DURATION } = options;
 
@@ -84,7 +80,6 @@ export async function generateClipPreview(options: ClipPreviewOptions): Promise<
     frameProcessor = new FrameProcessor(width, height);
     frameProcessor.setLut(lut);
 
-    // Voir le commentaire équivalent dans videoProcessor.ts au sujet du choix de 'no-preference'.
     const videoSampleSink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'no-preference' });
 
     for await (const sample of videoSampleSink.samples(clipStart, clipEnd)) {
@@ -92,9 +87,7 @@ export async function generateClipPreview(options: ClipPreviewOptions): Promise<
         await frameProcessor.process(sample);
 
         const outputSample = new VideoSample(frameProcessor.outputCanvas, {
-          // Ramené à zéro : l'extrait est un fichier indépendant qui doit commencer à t=0, pas au
-          // temps où il se trouvait dans la vidéo source.
-          timestamp: Math.max(0, sample.timestamp - clipStart),
+          timestamp: Math.max(0, sample.timestamp - clipStart), // ramené à 0 pour le fichier d'extrait
           duration: sample.duration,
           colorSpace: { primaries: 'bt709', transfer: 'bt709', matrix: 'bt709', fullRange: false },
         });
@@ -138,9 +131,7 @@ async function copyAudioClipPackets(
 
   let isFirstPacket = true;
   for await (const packet of sink.packets(startPacket, endPacket ?? undefined)) {
-    // Même donnée encodée (aucune perte), seule l'étiquette de temps est ramenée à zéro pour
-    // correspondre au début du fichier d'extrait indépendant.
-    const rebased = packet.clone({ timestamp: Math.max(0, packet.timestamp - clipStart) });
+    const rebased = packet.clone({ timestamp: Math.max(0, packet.timestamp - clipStart) }); // même data, juste le temps qui change
     if (isFirstPacket) {
       const decoderConfig = await audioTrack.getDecoderConfig();
       await source.add(rebased, decoderConfig ? { decoderConfig } : undefined);

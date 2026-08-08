@@ -16,11 +16,7 @@ const MATRIX_COEFFICIENTS: Record<string, { kr: number; kb: number }> = {
   'bt2020-ncl': { kr: 0.2627, kb: 0.0593 },
 };
 
-/**
- * La quasi-totalité des vidéos H.264/H.265 grand public (dont la Pocket 3) utilisent BT.709 en
- * "limited range" (studio). On lit les métadonnées réelles du fichier quand elles existent, et on
- * ne suppose BT.709/limited-range que lorsqu'elles sont absentes.
- */
+// Par défaut BT.709 limited-range si les métadonnées du fichier ne précisent rien.
 export function resolveYuvToRgbCoefficients(colorSpace: YuvMatrixInput): YuvToRgbCoefficients {
   const key = colorSpace.matrix ?? 'bt709';
   const coefficients = MATRIX_COEFFICIENTS[key] ?? MATRIX_COEFFICIENTS.bt709!;

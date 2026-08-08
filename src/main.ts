@@ -13,8 +13,7 @@ const BUILT_IN_LUTS = [
   { name: 'DJI Osmo Pocket 3 — Summer Pro', file: 'dji-dlogm-summer-pro.cube' },
   { name: 'DJI Osmo Pocket 3 — Autumn Pro', file: 'dji-dlogm-autumn-pro.cube' },
   { name: 'DJI Osmo Pocket 3 — Winter Pro', file: 'dji-dlogm-winter-pro.cube' },
-  // Presetpro : LUT "look" génériques, pensées pour une entrée déjà en Rec.709 (pas du D-Log M brut) —
-  // à utiliser en 2e passe, sur une vidéo déjà convertie par le LUT DJI ci-dessus.
+  // Presetpro : à utiliser en 2e passe, sur une vidéo déjà convertie
   { name: 'Presetpro — Agfa Ultra 100 (sur Rec.709 déjà converti)', file: 'presetpro-agfa-ultra-100.cube' },
   { name: 'Presetpro — Moody Stock (sur Rec.709 déjà converti)', file: 'presetpro-moody-stock.cube' },
   { name: 'Presetpro — Polaroid Color (sur Rec.709 déjà converti)', file: 'presetpro-polaroid-color.cube' },
@@ -42,9 +41,7 @@ type PreviewEntry = {
   clipButton: HTMLButtonElement;
   clipStatus: HTMLElement;
   clipVideo: HTMLVideoElement;
-  /** Durée totale de la vidéo, en secondes. 0 tant qu'elle n'a pas encore été découverte. */
-  duration: number;
-  /** Position actuellement prévisualisée (curseur + extrait), en secondes. */
+  duration: number; // 0 tant que pas encore connue
   timestamp: number;
 };
 
@@ -81,21 +78,12 @@ async function main(): Promise<void> {
     buildStep('3', 'Traiter et télécharger', startButton, queue.element),
   );
 
-  // Fichiers déposés mais pas encore traités : le traitement ne démarre plus automatiquement, il
-  // faut cliquer sur `startButton`. Une entrée quitte cette file dès qu'elle est prise en charge,
-  // qu'un nouveau dépôt puisse s'ajouter par-dessus sans retraiter ce qui est déjà en cours/fini.
-  const pending = new Map<string, PendingEntry>();
-  // Un aperçu par vidéo déposée, gardé pour toute la session (même après traitement) et régénéré
-  // dès que la sélection de LUT change, pour que l'aperçu affiché corresponde toujours à ce qui sera
-  // réellement appliqué au clic sur "Lancer le traitement".
+  const pending = new Map<string, PendingEntry>(); // fichiers en attente du clic sur "Lancer le traitement"
   const previewEntries = new Map<string, PreviewEntry>();
   let isProcessing = false;
 
-  // Toutes les demandes de rendu d'aperçu (dépôt, changement de LUT, déplacement du curseur) passent
-  // par cette chaîne pour rester séquentielles : chaque aperçu ouvre temporairement son propre
-  // contexte WebGL, et le navigateur en limite le nombre simultané (~8-16). Sans sérialisation, deux
-  // déclencheurs concurrents (ex. dépôt pendant qu'un changement de LUT régénère déjà tout) pourraient
-  // en ouvrir trop à la fois.
+  // File d'attente séquentielle pour les rendus d'aperçu : chaque aperçu ouvre un contexte WebGL
+  // temporaire, et le navigateur en limite le nombre simultané, donc on évite le concurrent.
   let previewRenderChain: Promise<void> = Promise.resolve();
   const scheduleRenderPreviews = (entries: PreviewEntry[], lut: ParsedCubeLut): void => {
     previewRenderChain = previewRenderChain
@@ -146,8 +134,6 @@ async function main(): Promise<void> {
     scheduleRenderPreviews([...previewEntries.values()], lut);
   });
 
-  // Le nom modifiable dans la file (étape 3) fait foi ; on le répercute au-dessus de l'aperçu
-  // correspondant (étape 2) pour que les deux restent synchronisés.
   queue.onRename((id, newName) => {
     const previewEntry = previewEntries.get(id);
     if (previewEntry) {
@@ -156,8 +142,6 @@ async function main(): Promise<void> {
     }
   });
 
-  // Retirer une vidéo ajoutée par erreur : la ligne de file est déjà supprimée par ProcessingQueue,
-  // il reste à l'enlever des fichiers en attente et à retirer sa carte d'aperçu.
   queue.onRemove((id) => {
     pending.delete(id);
     const previewEntry = previewEntries.get(id);
@@ -279,9 +263,6 @@ async function renderPreviews(entries: PreviewEntry[], lut: ParsedCubeLut): Prom
       setPreviewFigureCanvas(entry.afterFigure, toDisplayCanvas(afterCanvas));
 
       if (isFirstRender) {
-        // Première génération réussie : la durée réelle est connue, on peut activer le curseur et le
-        // positionner au milieu de la vidéo (au lieu du point fixe utilisé avant que la durée soit
-        // connue).
         entry.duration = duration;
         entry.timestamp = Math.max(0, Math.min(duration / 2, Math.max(duration - 0.1, 0)));
         entry.timelineInput.min = '0';

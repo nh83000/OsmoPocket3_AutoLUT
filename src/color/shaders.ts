@@ -1,11 +1,4 @@
-/**
- * Un seul triangle plein écran (pas de buffer d'index nécessaire).
- *
- * L'axe Y de vTexCoord est inversé par rapport à aPosition : nos données de pixels (plans vidéo ou
- * VideoFrame) sont fournies avec la ligne 0 en haut de l'image, mais WebGL place la ligne 0 des
- * données uploadées au niveau v=0 de la texture, qui correspond conventionnellement au bas de
- * l'image une fois échantillonné. Sans cette inversion, la vidéo de sortie apparaît à l'envers.
- */
+// Le -aPosition.y évite d'avoir l'image à l'envers (WebGL et nos plans vidéo n'ont pas le même sens de lecture).
 export const VERTEX_SHADER_SOURCE = `#version 300 es
 layout(location = 0) in vec2 aPosition;
 out vec2 vTexCoord;
@@ -16,18 +9,8 @@ void main() {
 }
 `;
 
-/**
- * Construit le fragment shader pour une profondeur de luminance donnée.
- *
- * - Le plan Y (luminance) est échantillonné en NEAREST à sa résolution native : 8 bits via un
- *   sampler2D classique (R8), 10 bits via un usampler2D entier (R16UI, valeurs divisées par 1023
- *   dans le shader). Comme il n'y a pas de sur-échantillonnage sur la luminance, NEAREST ne perd
- *   rien.
- * - Les plans U/V (chrominance, sous-échantillonnés en 4:2:0) sont TOUJOURS fournis en flottant
- *   normalisé (R16F) pour profiter du filtrage LINEAR du GPU — WebGL2 n'autorise pas LINEAR sur
- *   les textures entières, et la chrominance a justement besoin d'un sur-échantillonnage
- *   bilinéaire correct pour ne pas introduire de blocs visibles.
- */
+// Le Y (luma) reste en NEAREST à sa résolution native (8 bits en R8, 10 bits en R16UI entier).
+// Les U/V (chroma) passent en flottant normalisé R16F pour profiter du filtrage LINEAR du GPU.
 export function buildFragmentShaderSource(lumaBitDepth: 8 | 10): string {
   const isIntegerLuma = lumaBitDepth === 10;
   const lumaSamplerType = isIntegerLuma ? 'usampler2D' : 'sampler2D';
@@ -89,13 +72,8 @@ void main() {
 `;
 }
 
-/**
- * Shader de secours : quand le décodeur matériel renvoie une frame "opaque" (VideoFrame.format ===
- * null, données lisibles uniquement côté GPU), l'extraction manuelle des plans Y/U/V est impossible.
- * On délègue alors la conversion YUV→RGB au navigateur (upload direct de la VideoFrame comme texture
- * RGBA via texImage2D) et on se contente d'appliquer le LUT ici — même logique d'échantillonnage que
- * le shader principal, sans la partie colorimétrie YUV manuelle.
- */
+// Shader de secours quand l'extraction manuelle des plans YUV échoue : on laisse le navigateur
+// convertir en RGB (texImage2D) et on applique juste le LUT.
 export const RGBA_FRAGMENT_SHADER_SOURCE = `#version 300 es
 precision highp float;
 precision highp sampler3D;
