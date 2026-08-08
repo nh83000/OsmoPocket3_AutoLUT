@@ -111,6 +111,22 @@ async function main(): Promise<void> {
     event.returnValue = '';
   });
 
+  // Empêche l'écran de se verrouiller automatiquement pendant le traitement. Le verrou est relâché
+  // par le navigateur dès que l'onglet passe en arrière-plan (visibilitychange) : on le redemande
+  // au retour si le traitement tourne toujours.
+  let wakeLock: WakeLockSentinel | null = null;
+  const acquireWakeLock = async (): Promise<void> => {
+    if (!('wakeLock' in navigator)) return;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+    } catch (error) {
+      console.warn('Wake Lock indisponible :', error);
+    }
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isProcessing && !wakeLock) void acquireWakeLock();
+  });
+
   dropzone.onFiles((files) => {
     const newPreviewEntries: PreviewEntry[] = [];
 
@@ -172,9 +188,12 @@ async function main(): Promise<void> {
     if (isProcessing) return;
     isProcessing = true;
     refreshStartButton();
+    void acquireWakeLock();
     void processPending(pending, queue, lutSelector.selectedLut).finally(() => {
       isProcessing = false;
       refreshStartButton();
+      void wakeLock?.release().catch(() => {});
+      wakeLock = null;
     });
   });
 }
