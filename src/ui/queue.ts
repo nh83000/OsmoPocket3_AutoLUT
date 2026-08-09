@@ -1,3 +1,5 @@
+import { isMobileDevice } from './device';
+
 export type QueueItemStatus = 'waiting' | 'processing' | 'done' | 'error';
 
 export type QueueItem = {
@@ -123,15 +125,6 @@ export class ProcessingQueue {
     const removeButton = listItem.querySelector('.queue-item__remove') as HTMLButtonElement;
     removeButton.disabled = item.status === 'processing';
   }
-}
-
-function isMobileDevice(): boolean {
-  const uaData = (navigator as unknown as { userAgentData?: { mobile?: boolean } }).userAgentData;
-  if (uaData && typeof uaData.mobile === 'boolean') return uaData.mobile;
-  const ua = navigator.userAgent;
-  if (/Android|iPhone|iPod|iPad/i.test(ua)) return true;
-  // iPadOS se fait passer pour un Mac dans son user agent, mais reste tactile contrairement à un vrai Mac.
-  return /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1;
 }
 
 function supportsFileShare(mimeType: string): boolean {

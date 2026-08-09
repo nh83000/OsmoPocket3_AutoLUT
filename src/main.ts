@@ -1,6 +1,7 @@
 import { parseCubeLut, type ParsedCubeLut } from './lut/cubeParser';
 import { generateClipPreview } from './pipeline/clipPreview';
 import { UnsupportedVideoError, buildOutputFileName, processVideo } from './pipeline/videoProcessor';
+import { isMobileDevice } from './ui/device';
 import { VideoDropzone } from './ui/dropzone';
 import { LutSelector, type LutOption } from './ui/lutSelector';
 import { generatePreview } from './ui/preview';
@@ -102,7 +103,7 @@ async function main(): Promise<void> {
   const refreshStartButton = (): void => {
     startButton.disabled = isProcessing || pending.size === 0;
     startButton.textContent = isProcessing ? 'Traitement en cours…' : 'Lancer le traitement';
-    processingWarning.hidden = !isProcessing;
+    processingWarning.hidden = !isProcessing || !isMobileDevice();
   };
 
   window.addEventListener('beforeunload', (event) => {
