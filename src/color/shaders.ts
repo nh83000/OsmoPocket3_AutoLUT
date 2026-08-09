@@ -35,6 +35,7 @@ uniform float uKr;
 uniform float uKb;
 uniform bool uFullRange;
 uniform float uLutSize;
+uniform float uIntensity;
 
 void main() {
   float yRaw = ${sampleY};
@@ -66,8 +67,10 @@ void main() {
   float lutScale = (uLutSize - 1.0) / uLutSize;
   float lutOffset = 0.5 / uLutSize;
   vec3 lutCoord = rgb * lutScale + lutOffset;
+  vec3 graded = texture(uLutTexture, lutCoord).rgb;
 
-  fragColor = vec4(texture(uLutTexture, lutCoord).rgb, 1.0);
+  // Mélange avec la couleur d'origine pour doser l'intensité du LUT (1.0 = LUT plein, 0.0 = image plate).
+  fragColor = vec4(mix(rgb, graded, uIntensity), 1.0);
 }
 `;
 }
@@ -84,6 +87,7 @@ out vec4 fragColor;
 uniform sampler2D uSourceTexture;
 uniform sampler3D uLutTexture;
 uniform float uLutSize;
+uniform float uIntensity;
 
 void main() {
   vec3 rgb = clamp(texture(uSourceTexture, vTexCoord).rgb, 0.0, 1.0);
@@ -91,7 +95,8 @@ void main() {
   float lutScale = (uLutSize - 1.0) / uLutSize;
   float lutOffset = 0.5 / uLutSize;
   vec3 lutCoord = rgb * lutScale + lutOffset;
+  vec3 graded = texture(uLutTexture, lutCoord).rgb;
 
-  fragColor = vec4(texture(uLutTexture, lutCoord).rgb, 1.0);
+  fragColor = vec4(mix(rgb, graded, uIntensity), 1.0);
 }
 `;

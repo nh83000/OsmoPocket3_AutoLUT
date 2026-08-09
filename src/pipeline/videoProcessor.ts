@@ -29,6 +29,8 @@ export type ProcessingProgress = {
 export type ProcessVideoOptions = {
   file: File;
   lut: ParsedCubeLut;
+  /** Dosage du LUT entre 0 (image plate d'origine) et 1 (LUT plein). */
+  intensity: number;
   onProgress?: (progress: ProcessingProgress) => void;
 };
 
@@ -51,7 +53,7 @@ export async function computeTargetBitrate(videoTrack: InputVideoTrack): Promise
 }
 
 export async function processVideo(options: ProcessVideoOptions): Promise<ProcessVideoResult> {
-  const { file, lut, onProgress } = options;
+  const { file, lut, intensity, onProgress } = options;
 
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
 
@@ -99,6 +101,7 @@ export async function processVideo(options: ProcessVideoOptions): Promise<Proces
     const height = await videoTrack.getCodedHeight();
     frameProcessor = new FrameProcessor(width, height);
     frameProcessor.setLut(lut);
+    frameProcessor.setIntensity(intensity);
 
     // no-preference : forcer le logiciel casse le HEVC, forcer le matériel plante sur certains GPU.
     const videoSampleSink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'no-preference' });

@@ -94,9 +94,9 @@ async function main(): Promise<void> {
   // File d'attente séquentielle pour les rendus d'aperçu : chaque aperçu ouvre un contexte WebGL
   // temporaire, et le navigateur en limite le nombre simultané, donc on évite le concurrent.
   let previewRenderChain: Promise<void> = Promise.resolve();
-  const scheduleRenderPreviews = (entries: PreviewEntry[], lut: ParsedCubeLut): void => {
+  const scheduleRenderPreviews = (entries: PreviewEntry[], lut: ParsedCubeLut, intensity: number): void => {
     previewRenderChain = previewRenderChain
-      .then(() => renderPreviews(entries, lut))
+      .then(() => renderPreviews(entries, lut, intensity))
       .catch((error) => console.error('Erreur lors du rendu des aperçus :', error));
   };
 
@@ -149,21 +149,25 @@ async function main(): Promise<void> {
 
       built.timelineInput.addEventListener('change', () => {
         previewEntry.timestamp = Number(built.timelineInput.value);
-        scheduleRenderPreviews([previewEntry], lutSelector.selectedLut);
+        scheduleRenderPreviews([previewEntry], lutSelector.selectedLut, lutSelector.intensity);
       });
 
       built.clipButton.addEventListener('click', () => {
-        void generateClip(previewEntry, lutSelector.selectedLut);
+        void generateClip(previewEntry, lutSelector.selectedLut, lutSelector.intensity);
       });
     }
 
     previewSection.hidden = false;
-    scheduleRenderPreviews(newPreviewEntries, lutSelector.selectedLut);
+    scheduleRenderPreviews(newPreviewEntries, lutSelector.selectedLut, lutSelector.intensity);
     refreshStartButton();
   });
 
   lutSelector.onChange((lut) => {
-    scheduleRenderPreviews([...previewEntries.values()], lut);
+    scheduleRenderPreviews([...previewEntries.values()], lut, lutSelector.intensity);
+  });
+
+  lutSelector.onIntensityChange((intensity) => {
+    scheduleRenderPreviews([...previewEntries.values()], lutSelector.selectedLut, intensity);
   });
 
   queue.onRename((id, newName) => {
@@ -190,7 +194,7 @@ async function main(): Promise<void> {
     isProcessing = true;
     refreshStartButton();
     void acquireWakeLock();
-    void processPending(pending, queue, lutSelector.selectedLut).finally(() => {
+    void processPending(pending, queue, lutSelector.selectedLut, lutSelector.intensity).finally(() => {
       isProcessing = false;
       refreshStartButton();
       void wakeLock?.release().catch(() => {});
@@ -290,13 +294,14 @@ function setPreviewFigureCanvas(figure: HTMLElement, canvas: HTMLCanvasElement):
   figure.appendChild(canvas);
 }
 
-async function renderPreviews(entries: PreviewEntry[], lut: ParsedCubeLut): Promise<void> {
+async function renderPreviews(entries: PreviewEntry[], lut: ParsedCubeLut, intensity: number): Promise<void> {
   for (const entry of entries) {
     try {
       const isFirstRender = entry.duration === 0;
       const { beforeCanvas, afterCanvas, duration } = await generatePreview(
         entry.file,
         lut,
+        intensity,
         isFirstRender ? undefined : entry.timestamp,
       );
       setPreviewFigureCanvas(entry.beforeFigure, toDisplayCanvas(beforeCanvas));
@@ -321,12 +326,12 @@ async function renderPreviews(entries: PreviewEntry[], lut: ParsedCubeLut): Prom
   }
 }
 
-async function generateClip(entry: PreviewEntry, lut: ParsedCubeLut): Promise<void> {
+async function generateClip(entry: PreviewEntry, lut: ParsedCubeLut, intensity: number): Promise<void> {
   entry.clipButton.disabled = true;
   entry.clipStatus.textContent = 'Génération en cours…';
 
   try {
-    const blob = await generateClipPreview({ file: entry.file, lut, startTime: entry.timestamp });
+    const blob = await generateClipPreview({ file: entry.file, lut, intensity, startTime: entry.timestamp });
     if (entry.clipVideo.src) URL.revokeObjectURL(entry.clipVideo.src);
     entry.clipVideo.src = URL.createObjectURL(blob);
     entry.clipVideo.hidden = false;
@@ -339,7 +344,12 @@ async function generateClip(entry: PreviewEntry, lut: ParsedCubeLut): Promise<vo
   }
 }
 
-async function processPending(pending: Map<string, PendingEntry>, queue: ProcessingQueue, lut: ParsedCubeLut): Promise<void> {
+async function processPending(
+  pending: Map<string, PendingEntry>,
+  queue: ProcessingQueue,
+  lut: ParsedCubeLut,
+  intensity: number,
+): Promise<void> {
   for (const [id, { file, item }] of pending) {
     pending.delete(id);
 
@@ -350,6 +360,7 @@ async function processPending(pending: Map<string, PendingEntry>, queue: Process
       const result = await processVideo({
         file,
         lut,
+        intensity,
         onProgress: ({ processedFrames, totalFrames }) => {
           item.progress = totalFrames ? Math.min(processedFrames / totalFrames, 1) : 0;
           queue.updateItem(item);

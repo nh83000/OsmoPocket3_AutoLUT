@@ -22,6 +22,8 @@ import { UnsupportedVideoError, computeTargetBitrate } from './videoProcessor';
 export type ClipPreviewOptions = {
   file: File;
   lut: ParsedCubeLut;
+  /** Dosage du LUT entre 0 (image plate d'origine) et 1 (LUT plein). */
+  intensity: number;
   /** Point de départ de l'extrait, en secondes. Sera ramené dans les bornes de la vidéo. */
   startTime: number;
   /** Durée souhaitée de l'extrait, en secondes. */
@@ -32,7 +34,7 @@ const DEFAULT_CLIP_DURATION = 8;
 
 // Extrait court avec LUT + son, même pipeline que processVideo mais borné à une fenêtre temporelle.
 export async function generateClipPreview(options: ClipPreviewOptions): Promise<Blob> {
-  const { file, lut, clipDuration = DEFAULT_CLIP_DURATION } = options;
+  const { file, lut, intensity, clipDuration = DEFAULT_CLIP_DURATION } = options;
 
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
 
@@ -79,6 +81,7 @@ export async function generateClipPreview(options: ClipPreviewOptions): Promise<
     const height = await videoTrack.getCodedHeight();
     frameProcessor = new FrameProcessor(width, height);
     frameProcessor.setLut(lut);
+    frameProcessor.setIntensity(intensity);
 
     const videoSampleSink = new VideoSampleSink(videoTrack, { hardwareAcceleration: 'no-preference' });
 

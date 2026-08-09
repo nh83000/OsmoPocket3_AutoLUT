@@ -5,12 +5,17 @@ export type LutOption = {
   lut: ParsedCubeLut;
 };
 
+const DEFAULT_INTENSITY_PERCENT = 80;
+
 export class LutSelector {
   readonly element: HTMLElement;
   private readonly select: HTMLSelectElement;
   private readonly fileInput: HTMLInputElement;
+  private readonly intensityInput: HTMLInputElement;
+  private readonly intensityValue: HTMLElement;
   private options: LutOption[];
   private onChangeCallback: ((lut: ParsedCubeLut) => void) | null = null;
+  private onIntensityChangeCallback: ((intensity: number) => void) | null = null;
 
   constructor(builtInOptions: LutOption[]) {
     this.options = builtInOptions;
@@ -46,8 +51,35 @@ export class LutSelector {
     this.fileInput.hidden = true;
     this.fileInput.addEventListener('change', () => void this.handleFileSelected());
 
+    const intensityRow = document.createElement('div');
+    intensityRow.className = 'lut-selector__intensity';
+
+    const intensityLabel = document.createElement('label');
+    intensityLabel.className = 'lut-selector__intensity-label';
+    intensityLabel.textContent = 'Intensité du LUT';
+    intensityLabel.htmlFor = 'lut-intensity';
+
+    this.intensityInput = document.createElement('input');
+    this.intensityInput.id = 'lut-intensity';
+    this.intensityInput.type = 'range';
+    this.intensityInput.className = 'lut-selector__intensity-slider';
+    this.intensityInput.min = '0';
+    this.intensityInput.max = '100';
+    this.intensityInput.value = String(DEFAULT_INTENSITY_PERCENT);
+
+    this.intensityValue = document.createElement('span');
+    this.intensityValue.className = 'lut-selector__intensity-value';
+    this.intensityValue.textContent = `${DEFAULT_INTENSITY_PERCENT}%`;
+
+    this.intensityInput.addEventListener('input', () => {
+      this.intensityValue.textContent = `${this.intensityInput.value}%`;
+      this.onIntensityChangeCallback?.(this.intensity);
+    });
+
+    intensityRow.append(intensityLabel, this.intensityInput, this.intensityValue);
+
     actions.append(renameButton, addButton);
-    this.element.append(this.select, actions, this.fileInput);
+    this.element.append(this.select, actions, intensityRow, this.fileInput);
     this.renderOptions();
   }
 
@@ -55,8 +87,18 @@ export class LutSelector {
     this.onChangeCallback = callback;
   }
 
+  /** Appelé à chaque déplacement du curseur d'intensité (valeur entre 0 et 1). */
+  onIntensityChange(callback: (intensity: number) => void): void {
+    this.onIntensityChangeCallback = callback;
+  }
+
   get selectedLut(): ParsedCubeLut {
     return this.options[this.select.selectedIndex]!.lut;
+  }
+
+  /** Dosage du LUT courant, entre 0 (image plate d'origine) et 1 (LUT plein). */
+  get intensity(): number {
+    return Number(this.intensityInput.value) / 100;
   }
 
   private async handleFileSelected(): Promise<void> {

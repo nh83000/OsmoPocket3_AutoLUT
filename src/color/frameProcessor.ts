@@ -17,6 +17,7 @@ type ProgramBundle = {
     kb: WebGLUniformLocation;
     fullRange: WebGLUniformLocation;
     lutSize: WebGLUniformLocation;
+    intensity: WebGLUniformLocation;
   };
 };
 
@@ -26,6 +27,7 @@ type RgbaProgramBundle = {
     sourceTexture: WebGLUniformLocation;
     lutTexture: WebGLUniformLocation;
     lutSize: WebGLUniformLocation;
+    intensity: WebGLUniformLocation;
   };
 };
 
@@ -48,6 +50,7 @@ export class FrameProcessor {
   private lutSize = 0;
   private rgbaProgram: RgbaProgramBundle | null = null;
   private lastFrameUsedFallback = false;
+  private intensity = 1;
 
   constructor(width: number, height: number) {
     this.canvas =
@@ -77,6 +80,11 @@ export class FrameProcessor {
     if (this.lutTexture) this.gl.deleteTexture(this.lutTexture);
     this.lutTexture = createLutTexture(this.gl, lut);
     this.lutSize = lut.size;
+  }
+
+  /** @param intensity - Dosage du LUT entre 0 (image plate d'origine) et 1 (LUT plein). */
+  setIntensity(intensity: number): void {
+    this.intensity = intensity;
   }
 
   async process(sample: VideoSample): Promise<void> {
@@ -136,6 +144,7 @@ export class FrameProcessor {
     gl.uniform1f(bundle.uniforms.kb, coefficients.kb);
     gl.uniform1i(bundle.uniforms.fullRange, coefficients.fullRange ? 1 : 0);
     gl.uniform1f(bundle.uniforms.lutSize, this.lutSize);
+    gl.uniform1f(bundle.uniforms.intensity, this.intensity);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
@@ -181,6 +190,7 @@ export class FrameProcessor {
     gl.uniform1i(bundle.uniforms.lutTexture, 3);
 
     gl.uniform1f(bundle.uniforms.lutSize, this.lutSize);
+    gl.uniform1f(bundle.uniforms.intensity, this.intensity);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
@@ -195,6 +205,7 @@ export class FrameProcessor {
         sourceTexture: this.getUniformLocation(program, 'uSourceTexture'),
         lutTexture: this.getUniformLocation(program, 'uLutTexture'),
         lutSize: this.getUniformLocation(program, 'uLutSize'),
+        intensity: this.getUniformLocation(program, 'uIntensity'),
       },
     };
     this.rgbaProgram = bundle;
@@ -283,6 +294,7 @@ export class FrameProcessor {
         kb: this.getUniformLocation(program, 'uKb'),
         fullRange: this.getUniformLocation(program, 'uFullRange'),
         lutSize: this.getUniformLocation(program, 'uLutSize'),
+        intensity: this.getUniformLocation(program, 'uIntensity'),
       },
     };
     this.programs.set(lumaBitDepth, bundle);

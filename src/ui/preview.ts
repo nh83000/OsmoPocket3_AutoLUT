@@ -13,7 +13,12 @@ export type PreviewResult = {
 };
 
 /** @param timestamp - Position à prévisualiser, en secondes. Par défaut, le milieu de la vidéo. */
-export async function generatePreview(file: File, lut: ParsedCubeLut, timestamp?: number): Promise<PreviewResult> {
+export async function generatePreview(
+  file: File,
+  lut: ParsedCubeLut,
+  intensity: number,
+  timestamp?: number,
+): Promise<PreviewResult> {
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
 
   let sample: VideoSample | null = null;
@@ -43,6 +48,7 @@ export async function generatePreview(file: File, lut: ParsedCubeLut, timestamp?
 
     frameProcessor = new FrameProcessor(await videoTrack.getCodedWidth(), await videoTrack.getCodedHeight());
     frameProcessor.setLut(lut);
+    frameProcessor.setIntensity(intensity);
     await frameProcessor.process(sample);
 
     return { beforeCanvas, afterCanvas: frameProcessor.outputCanvas, duration };

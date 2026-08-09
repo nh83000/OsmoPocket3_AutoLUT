@@ -185,6 +185,34 @@ body {
   gap: 0.5rem;
 }
 
+.lut-selector__intensity {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  margin-top: 0.2rem;
+}
+
+.lut-selector__intensity-label {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.lut-selector__intensity-slider {
+  flex: 1;
+  accent-color: var(--color-accent);
+}
+
+.lut-selector__intensity-value {
+  flex-shrink: 0;
+  min-width: 2.6rem;
+  text-align: right;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 /* --- Zone de dépôt --- */
 
 .dropzone {
