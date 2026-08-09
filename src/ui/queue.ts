@@ -48,6 +48,24 @@ export class ProcessingQueue {
     const status = document.createElement('span');
     status.className = 'queue-item__status badge';
 
+    const shareButton = document.createElement('button');
+    shareButton.type = 'button';
+    shareButton.className = 'queue-item__share button button--accent';
+    shareButton.textContent = 'Enregistrer dans la pellicule';
+    shareButton.hidden = true;
+    shareButton.addEventListener('click', async () => {
+      const current = this.items.get(item.id);
+      if (!current?.blob) return;
+      const fileName = nameInput.value.trim() || current.fileName;
+      const file = new File([current.blob], fileName, { type: current.blob.type || 'video/mp4' });
+      try {
+        await navigator.share({ files: [file] });
+      } catch (error) {
+        // AbortError : l'utilisateur a annulé la feuille de partage, rien à signaler.
+        if (error instanceof Error && error.name !== 'AbortError') console.warn('Partage impossible :', error);
+      }
+    });
+
     const downloadButton = document.createElement('button');
     downloadButton.type = 'button';
     downloadButton.className = 'queue-item__download button button--accent';
@@ -74,7 +92,7 @@ export class ProcessingQueue {
     progress.className = 'queue-item__progress';
     progress.max = 100;
 
-    row.append(nameInput, status, downloadButton, removeButton);
+    row.append(nameInput, status, shareButton, downloadButton, removeButton);
     listItem.append(row, progress);
     this.itemElements.set(item.id, listItem);
     this.element.appendChild(listItem);
@@ -99,8 +117,21 @@ export class ProcessingQueue {
     const downloadButton = listItem.querySelector('.queue-item__download') as HTMLButtonElement;
     downloadButton.hidden = !(item.status === 'done' && item.blob);
 
+    const shareButton = listItem.querySelector('.queue-item__share') as HTMLButtonElement;
+    shareButton.hidden = !(item.status === 'done' && item.blob && supportsFileShare(item.blob.type));
+
     const removeButton = listItem.querySelector('.queue-item__remove') as HTMLButtonElement;
     removeButton.disabled = item.status === 'processing';
+  }
+}
+
+function supportsFileShare(mimeType: string): boolean {
+  if (typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') return false;
+  try {
+    const probe = new File([], 'probe.mp4', { type: mimeType || 'video/mp4' });
+    return navigator.canShare({ files: [probe] });
+  } catch {
+    return false;
   }
 }
 
