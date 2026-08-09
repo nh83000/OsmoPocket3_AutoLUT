@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Convertisseur YouTube</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="glass">
+    <h1>Convertisseur YouTube</h1>
+    <form id="convert-form">
+      <div class="url-row">
+        <input type="url" id="url-input" placeholder="Collez un lien YouTube" required>
+        <button type="button" id="paste-button" title="Coller depuis le presse-papier">📋</button>
+      </div>
+      <button type="button" id="verify-button">Vérifier</button>
+      <div id="preview-area"></div>
+      <div id="convert-section" hidden>
+        <div class="format-choice">
+          <label class="format-option">
+            <input type="radio" name="format" value="mp3" checked>
+            <span>MP3</span>
+          </label>
+          <label class="format-option">
+            <input type="radio" name="format" value="mp4">
+            <span>MP4</span>
+          </label>
+        </div>
+        <button type="submit">Convertir</button>
+      </div>
+    </form>
+    <div id="status-area"></div>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
