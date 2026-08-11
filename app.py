@@ -12,7 +12,7 @@ app = Flask(__name__, static_folder=None)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 AUTOLUT_DIST_DIR = os.path.join(BASE_DIR, "dist")
-CONVERTISSEUR_STATIC_DIR = os.path.join(BASE_DIR, "convertisseur", "static")
+CONVERTISSEUR_STATIC_DIR = os.path.join(BASE_DIR, "public", "convertisseur")
 
 
 def check_ffmpeg():
@@ -29,7 +29,7 @@ def check_autolut_build():
 
 def check_convertisseur_static():
     if not os.path.isdir(CONVERTISSEUR_STATIC_DIR):
-        print("Erreur : le dossier 'convertisseur/static/' est introuvable.")
+        print("Erreur : le dossier 'public/convertisseur/' est introuvable.")
         sys.exit(1)
 
 
