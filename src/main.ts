@@ -51,7 +51,9 @@ async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('#app introuvable dans index.html.');
 
-  const isLocalServer = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isLocalServer =
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+    window.location.port === '5000';
   const navLink = isLocalServer
     ? '<a class="button button--ghost app-header__nav-link" href="/convertisseur/">🎬 Convertisseur YouTube</a>'
     : '';
