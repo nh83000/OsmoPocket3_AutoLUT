@@ -1,3 +1,21 @@
+const IS_LOCAL = window.location.hostname === "localhost" && window.location.port === "5000";
+const API_BASE = IS_LOCAL ? "" : "https://TON-SERVICE.onrender.com";
+
+const passwordRow = document.getElementById("password-row");
+const passwordInput = document.getElementById("password-input");
+
+if (!IS_LOCAL) {
+  passwordRow.hidden = false;
+  passwordInput.value = sessionStorage.getItem("convertisseurPassword") || "";
+  passwordInput.addEventListener("input", () => {
+    sessionStorage.setItem("convertisseurPassword", passwordInput.value);
+  });
+}
+
+function authHeaders() {
+  return IS_LOCAL ? {} : { "X-Password": passwordInput.value };
+}
+
 const form = document.getElementById("convert-form");
 const urlInput = document.getElementById("url-input");
 const pasteButton = document.getElementById("paste-button");
@@ -44,7 +62,9 @@ verifyButton.addEventListener("click", async () => {
   let response;
   let data;
   try {
-    response = await fetch(`/api/preview?url=${encodeURIComponent(url)}`);
+    response = await fetch(`${API_BASE}/api/preview?url=${encodeURIComponent(url)}`, {
+      headers: authHeaders(),
+    });
     data = await response.json();
   } catch (err) {
     previewArea.innerHTML = `<p class="error">Impossible de contacter le serveur.</p>`;
@@ -93,9 +113,9 @@ form.addEventListener("submit", async (e) => {
   let response;
   let data;
   try {
-    response = await fetch("/api/convert", {
+    response = await fetch(`${API_BASE}/api/convert`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ url, format }),
     });
     data = await response.json();
@@ -118,7 +138,9 @@ form.addEventListener("submit", async (e) => {
 function pollStatus(jobId) {
   pollTimer = setInterval(async () => {
     try {
-      const response = await fetch(`/api/status/${jobId}`);
+      const response = await fetch(`${API_BASE}/api/status/${jobId}`, {
+        headers: authHeaders(),
+      });
       const data = await response.json();
 
       if (!response.ok) {
@@ -179,11 +201,40 @@ function showSuccess(jobId, filename) {
       </div>
       <p class="success-title">C'est prêt !</p>
       <p class="success-filename">${filename}</p>
-      <a href="/api/download/${jobId}" id="download-link" class="download-btn">⬇ Télécharger</a>
+      <a href="#" id="download-link" class="download-btn">⬇ Télécharger</a>
     </div>
   `;
-  document.getElementById("download-link").addEventListener("click", () => {
-    statusArea.innerHTML = "<p>Fichier téléchargé.</p>";
+  const downloadLink = document.getElementById("download-link");
+
+  if (IS_LOCAL) {
+    downloadLink.href = `/api/download/${jobId}`;
+    downloadLink.addEventListener("click", () => {
+      statusArea.innerHTML = "<p>Fichier téléchargé.</p>";
+    });
+    return;
+  }
+
+  downloadLink.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${API_BASE}/api/download/${jobId}`, {
+        headers: authHeaders(),
+      });
+      if (!response.ok) {
+        showError("Téléchargement impossible. Vérifiez le mot de passe.");
+        return;
+      }
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(blobUrl);
+      statusArea.innerHTML = "<p>Fichier téléchargé.</p>";
+    } catch (err) {
+      showError("Téléchargement impossible.");
+    }
   });
 }
 

@@ -283,3 +283,21 @@ h1 {
   outline: 2px solid var(--text-primary);
   outline-offset: 2px;
 }
+
+.password-row {
+  margin-bottom: 0.75rem;
+}
+
+.password-row input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+}
+
+.password-row input::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
