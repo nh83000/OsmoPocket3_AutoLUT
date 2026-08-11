@@ -2,3 +2,9 @@ node_modules
 dist
 *.local
 /*.cube
+venv/
+__pycache__/
+*.pyc
+downloads/
+.superpowers/
+.claude/
