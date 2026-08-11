@@ -27,6 +27,12 @@ def check_autolut_build():
         sys.exit(1)
 
 
+def check_convertisseur_static():
+    if not os.path.isdir(CONVERTISSEUR_STATIC_DIR):
+        print("Erreur : le dossier 'convertisseur/static/' est introuvable.")
+        sys.exit(1)
+
+
 @app.route("/")
 def index():
     return send_from_directory(AUTOLUT_DIST_DIR, "index.html")
@@ -133,5 +139,6 @@ def download(job_id):
 if __name__ == "__main__":
     check_ffmpeg()
     check_autolut_build()
+    check_convertisseur_static()
     converter.cleanup_old_downloads()
     app.run(debug=True, port=5000)
