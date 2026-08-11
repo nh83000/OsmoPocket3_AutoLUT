@@ -60,6 +60,20 @@ body {
   font-size: 0.9rem;
 }
 
+.app-header__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.app-header__nav-link {
+  flex-shrink: 0;
+  text-decoration: none;
+  display: inline-block;
+}
+
 .step {
   background: var(--color-surface);
   border: 1px solid var(--color-border);

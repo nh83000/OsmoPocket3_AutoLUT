@@ -54,8 +54,13 @@ async function main(): Promise<void> {
   const header = document.createElement('header');
   header.className = 'app-header';
   header.innerHTML =
+    '<div class="app-header__row">' +
+    '<div>' +
     '<h1>Convertisseur LUT — DJI Osmo Pocket 3</h1>' +
-    '<p class="app-header__subtitle">Tout se passe dans votre navigateur : rien n\'est envoyé sur internet.</p>';
+    '<p class="app-header__subtitle">Tout se passe dans votre navigateur : rien n\'est envoyé sur internet.</p>' +
+    '</div>' +
+    '<a class="button button--ghost app-header__nav-link" href="/convertisseur/">🎬 Convertisseur YouTube</a>' +
+    '</div>';
 
   const lutSelector = new LutSelector(await loadBuiltInLuts());
   const dropzone = new VideoDropzone();
