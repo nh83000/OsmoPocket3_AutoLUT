@@ -51,13 +51,6 @@ async function main(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('#app introuvable dans index.html.');
 
-  const isLocalServer =
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
-    window.location.port === '5000';
-  const navLink = isLocalServer
-    ? '<a class="button button--ghost app-header__nav-link" href="/convertisseur/">🎬 Convertisseur YouTube</a>'
-    : '';
-
   const header = document.createElement('header');
   header.className = 'app-header';
   header.innerHTML =
@@ -66,7 +59,7 @@ async function main(): Promise<void> {
     '<h1>Convertisseur LUT — DJI Osmo Pocket 3</h1>' +
     '<p class="app-header__subtitle">Tout se passe dans votre navigateur : rien n\'est envoyé sur internet.</p>' +
     '</div>' +
-    navLink +
+    '<a class="button button--ghost app-header__nav-link" href="convertisseur/">🎬 Convertisseur YouTube</a>' +
     '</div>';
 
   const lutSelector = new LutSelector(await loadBuiltInLuts());
