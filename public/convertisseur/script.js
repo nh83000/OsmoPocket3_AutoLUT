@@ -1,4 +1,6 @@
-const IS_LOCAL = window.location.hostname === "localhost" && window.location.port === "5000";
+const IS_LOCAL =
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
+  window.location.port === "5000";
 const API_BASE = IS_LOCAL ? "" : "https://TON-SERVICE.onrender.com";
 
 const passwordRow = document.getElementById("password-row");
@@ -221,7 +223,8 @@ function showSuccess(jobId, filename) {
         headers: authHeaders(),
       });
       if (!response.ok) {
-        showError("Téléchargement impossible. Vérifiez le mot de passe.");
+        const data = await response.json().catch(() => ({}));
+        showError(data.error || "Téléchargement impossible.");
         return;
       }
       const blob = await response.blob();
