@@ -272,3 +272,14 @@ h1 {
   font-weight: 600;
   text-decoration: none;
 }
+
+.app-nav__link:hover,
+.app-nav__link:focus-visible {
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+}
+
+.app-nav__link:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
