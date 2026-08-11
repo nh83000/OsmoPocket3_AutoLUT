@@ -54,7 +54,13 @@ Aussi disponible en ligne, en version autonome sans le Convertisseur : déploiem
 
 ## Tests
 
-Pas de suite de tests automatisés (projets volontairement petits). Validation manuelle :
+AutoLUT dispose de tests unitaires Vitest (parsing des LUT, espace colorimétrique) :
+
+```bash
+npm test
+```
+
+Le Convertisseur n'a pas de suite automatisée (projet volontairement petit) — validation manuelle :
 - AutoLUT : traitement d'une vidéo réelle avec un LUT intégré
 - Conversion MP3 et MP4 sur une vidéo YouTube publique réelle
 - URL invalide → message d'erreur affiché sans plantage
