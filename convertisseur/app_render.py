@@ -13,7 +13,7 @@ ALLOWED_ORIGIN = "https://nh83000.github.io"
 PASSWORD_ENV_VAR = "CONVERTISSEUR_PASSWORD"
 # La vérification ci-dessous (compter puis créer le job) n'est pas atomique :
 # jobs_lock est relâché entre le comptage et converter.start_conversion(), qui
-# le racquiert séparément. C'est sans risque uniquement parce que le déploiement
+# le réacquiert séparément. C'est sans risque uniquement parce que le déploiement
 # Render tourne avec un seul worker gunicorn (--workers 1 --threads 1, voir
 # convertisseur/Dockerfile) : une seule requête HTTP est traitée à la fois, donc
 # aucune vraie concurrence n'existe pour déclencher la course. Si le nombre de
