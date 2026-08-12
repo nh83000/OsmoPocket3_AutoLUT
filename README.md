@@ -36,7 +36,7 @@ Puis ouvrir `http://localhost:5000` : AutoLUT s'affiche en page d'accueil, avec 
 
 Dépose une ou plusieurs vidéos, choisis un LUT (préréglages DJI Osmo Pocket 3 ou Presetpro), ajuste l'intensité, prévisualise, puis lance le traitement. Tout se passe dans le navigateur, rien n'est envoyé sur internet.
 
-Aussi disponible en ligne, en version autonome sans le Convertisseur : déploiement automatique sur GitHub Pages à chaque push sur `main`.
+Aussi disponible en ligne (déploiement automatique sur GitHub Pages à chaque push sur `main`), avec un bouton vers le Convertisseur si celui-ci a été déployé en ligne (voir « Déploiement en ligne (Render) » plus bas) — sinon le bouton mène à une page qui ne pourra pas se connecter à un serveur.
 
 ## Convertisseur YouTube
 
