@@ -71,3 +71,20 @@ Le Convertisseur n'a pas de suite automatisée (projet volontairement petit) —
 Le Convertisseur configure automatiquement yt-dlp pour utiliser Node.js comme moteur JavaScript, nécessaire pour résoudre certains défis anti-bot de YouTube (évite les erreurs `HTTP Error 403: Forbidden` sur certains formats). Le script officiel de résolution fourni par yt-dlp est téléchargé depuis GitHub au premier lancement, puis mis en cache localement. Aucune configuration manuelle supplémentaire n'est nécessaire au-delà d'avoir Node.js installé et accessible dans le PATH.
 
 Si `python app.py` affiche une erreur au sujet de `dist/` introuvable, lancez `npm install && npm run build` avant de relancer.
+
+## Déploiement en ligne (Render)
+
+Le Convertisseur peut aussi être accessible depuis la version publique GitHub Pages d'AutoLUT (bouton « 🎬 Convertisseur YouTube »), via un serveur hébergé sur [Render](https://render.com). Ces étapes sont à faire une seule fois, manuellement (aucune ne peut être automatisée) :
+
+1. Créer un compte gratuit sur [render.com](https://render.com) (aucune carte bancaire requise pour le palier gratuit).
+2. Dans le tableau de bord Render, créer un nouveau **Web Service**, connecter ce repo GitHub (`OsmoPocket3_AutoLUT`).
+3. Configuration du service :
+   - **Root Directory** : laisser vide (racine du repo)
+   - **Dockerfile Path** : `convertisseur/Dockerfile`
+   - **Instance Type** : Free
+4. Dans l'onglet **Environment** du service, ajouter une variable d'environnement `CONVERTISSEUR_PASSWORD` avec le mot de passe de votre choix.
+5. Lancer le déploiement. Une fois terminé, Render fournit une URL du type `https://un-nom.onrender.com`.
+6. Mettre à jour `public/convertisseur/script.js` : remplacer `https://TON-SERVICE.onrender.com` par cette URL réelle.
+7. `npm run build` puis commit + push — GitHub Pages se redéploie automatiquement avec la bonne URL.
+
+**Limite du palier gratuit :** le service s'endort après 15 minutes d'inactivité ; la requête suivante prend 30 à 60 secondes de plus le temps qu'il se réveille. Normal, pas un bug.
