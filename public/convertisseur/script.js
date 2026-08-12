@@ -3,19 +3,77 @@ const IS_LOCAL =
   window.location.port === "5000";
 const API_BASE = IS_LOCAL ? "" : "https://convertisseur-youtube-krhs.onrender.com";
 
-const passwordRow = document.getElementById("password-row");
+const passwordGate = document.getElementById("password-gate");
+const appContent = document.getElementById("app-content");
 const passwordInput = document.getElementById("password-input");
+const passwordButton = document.getElementById("password-button");
+const passwordError = document.getElementById("password-error");
 
-if (!IS_LOCAL) {
-  passwordRow.hidden = false;
-  passwordInput.value = sessionStorage.getItem("convertisseurPassword") || "";
-  passwordInput.addEventListener("input", () => {
-    sessionStorage.setItem("convertisseurPassword", passwordInput.value);
-  });
-}
+let currentPassword = "";
 
 function authHeaders() {
-  return IS_LOCAL ? {} : { "X-Password": passwordInput.value };
+  return IS_LOCAL ? {} : { "X-Password": currentPassword };
+}
+
+function showGate(message) {
+  appContent.hidden = true;
+  passwordGate.hidden = false;
+  if (message) {
+    passwordError.textContent = message;
+    passwordError.hidden = false;
+  } else {
+    passwordError.hidden = true;
+  }
+}
+
+function showApp() {
+  passwordGate.hidden = true;
+  appContent.hidden = false;
+}
+
+function handleAuthError(response) {
+  if (IS_LOCAL || response.status !== 401) return false;
+  sessionStorage.removeItem("convertisseurPassword");
+  showGate("Session expirée, ressaisissez le mot de passe.");
+  return true;
+}
+
+async function tryPassword(password) {
+  try {
+    const response = await fetch(`${API_BASE}/api/check`, {
+      headers: { "X-Password": password },
+    });
+    if (!response.ok) {
+      sessionStorage.removeItem("convertisseurPassword");
+      showGate("Mot de passe incorrect.");
+      return;
+    }
+    currentPassword = password;
+    sessionStorage.setItem("convertisseurPassword", password);
+    showApp();
+  } catch (err) {
+    showGate("Impossible de contacter le serveur.");
+  }
+}
+
+if (IS_LOCAL) {
+  showApp();
+} else {
+  passwordButton.addEventListener("click", () => {
+    const value = passwordInput.value.trim();
+    if (!value) return;
+    tryPassword(value);
+  });
+  passwordInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") passwordButton.click();
+  });
+
+  const stored = sessionStorage.getItem("convertisseurPassword");
+  if (stored) {
+    tryPassword(stored);
+  } else {
+    showGate();
+  }
 }
 
 const form = document.getElementById("convert-form");
@@ -74,6 +132,7 @@ verifyButton.addEventListener("click", async () => {
   }
 
   if (!response.ok) {
+    if (handleAuthError(response)) return;
     previewArea.innerHTML = `<p class="error">${data.error}</p>`;
     return;
   }
@@ -128,6 +187,10 @@ form.addEventListener("submit", async (e) => {
   }
 
   if (!response.ok) {
+    if (handleAuthError(response)) {
+      submitButton.disabled = false;
+      return;
+    }
     showError(data.error);
     submitButton.disabled = false;
     return;
@@ -146,9 +209,10 @@ function pollStatus(jobId) {
       const data = await response.json();
 
       if (!response.ok) {
-        showError(data.error);
         stopPolling();
         submitButton.disabled = false;
+        if (handleAuthError(response)) return;
+        showError(data.error);
         return;
       }
 
@@ -223,6 +287,7 @@ function showSuccess(jobId, filename) {
         headers: authHeaders(),
       });
       if (!response.ok) {
+        if (handleAuthError(response)) return;
         const data = await response.json().catch(() => ({}));
         showError(data.error || "Téléchargement impossible.");
         return;

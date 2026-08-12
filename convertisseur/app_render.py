@@ -54,6 +54,13 @@ def health():
     return "OK"
 
 
+@app.route("/api/check")
+def check():
+    # N'a pas besoin de logique propre : atteindre cette route prouve deja que
+    # check_password (before_request) a laisse passer la requete.
+    return jsonify({"ok": True})
+
+
 @app.route("/api/convert", methods=["POST"])
 def convert():
     data = request.get_json(force=True)

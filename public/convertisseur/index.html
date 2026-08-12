@@ -10,32 +10,41 @@
     <div class="app-nav">
       <a href="../" class="app-nav__link">🎨 AutoLUT</a>
     </div>
-    <div class="password-row" id="password-row" hidden>
-      <input type="password" id="password-input" placeholder="Mot de passe du serveur">
-    </div>
     <h1>Convertisseur YouTube</h1>
-    <form id="convert-form">
-      <div class="url-row">
-        <input type="url" id="url-input" placeholder="Collez un lien YouTube" required>
-        <button type="button" id="paste-button" title="Coller depuis le presse-papier">📋</button>
+
+    <div id="password-gate" hidden>
+      <p class="password-gate__hint">Ce service est protégé par un mot de passe.</p>
+      <div class="password-row">
+        <input type="password" id="password-input" placeholder="Mot de passe du serveur">
+        <button type="button" id="password-button">Valider</button>
       </div>
-      <button type="button" id="verify-button">Vérifier</button>
-      <div id="preview-area"></div>
-      <div id="convert-section" hidden>
-        <div class="format-choice">
-          <label class="format-option">
-            <input type="radio" name="format" value="mp3" checked>
-            <span>MP3</span>
-          </label>
-          <label class="format-option">
-            <input type="radio" name="format" value="mp4">
-            <span>MP4</span>
-          </label>
+      <p id="password-error" class="error" hidden></p>
+    </div>
+
+    <div id="app-content" hidden>
+      <form id="convert-form">
+        <div class="url-row">
+          <input type="url" id="url-input" placeholder="Collez un lien YouTube" required>
+          <button type="button" id="paste-button" title="Coller depuis le presse-papier">📋</button>
         </div>
-        <button type="submit">Convertir</button>
-      </div>
-    </form>
-    <div id="status-area"></div>
+        <button type="button" id="verify-button">Vérifier</button>
+        <div id="preview-area"></div>
+        <div id="convert-section" hidden>
+          <div class="format-choice">
+            <label class="format-option">
+              <input type="radio" name="format" value="mp3" checked>
+              <span>MP3</span>
+            </label>
+            <label class="format-option">
+              <input type="radio" name="format" value="mp4">
+              <span>MP4</span>
+            </label>
+          </div>
+          <button type="submit">Convertir</button>
+        </div>
+      </form>
+      <div id="status-area"></div>
+    </div>
   </main>
   <script src="script.js"></script>
 </body>

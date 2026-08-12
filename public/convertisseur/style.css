@@ -284,12 +284,21 @@ h1 {
   outline-offset: 2px;
 }
 
+.password-gate__hint {
+  margin: 0 0 0.75rem 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
 .password-row {
+  display: flex;
+  gap: 0.5rem;
   margin-bottom: 0.75rem;
 }
 
 .password-row input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   padding: 0.6rem 0.75rem;
   font-size: 0.95rem;
   border-radius: 8px;
@@ -300,4 +309,16 @@ h1 {
 
 .password-row input::placeholder {
   color: rgba(255, 255, 255, 0.55);
+}
+
+#password-button {
+  flex-shrink: 0;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
