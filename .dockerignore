@@ -1,0 +1,10 @@
+node_modules
+dist
+venv
+.git
+downloads
+__pycache__
+docs
+public
+src
+*.cube
