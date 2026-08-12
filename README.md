@@ -50,7 +50,7 @@ Aussi disponible en ligne (déploiement automatique sur GitHub Pages à chaque p
 
 - Une seule vidéo à la fois, pas de playlist
 - Pas de choix de qualité/résolution (toujours la meilleure disponible)
-- Application mono-utilisateur, prévue pour un usage local uniquement
+- Application mono-utilisateur, prévue pour un usage local ou personnel (voir « Déploiement en ligne (Render) » pour l'usage depuis GitHub Pages)
 
 ## Tests
 
