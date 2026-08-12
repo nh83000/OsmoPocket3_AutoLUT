@@ -11,6 +11,7 @@ from convertisseur import converter
 
 ALLOWED_ORIGIN = "https://nh83000.github.io"
 PASSWORD_ENV_VAR = "CONVERTISSEUR_PASSWORD"
+MAX_CONCURRENT_CONVERSIONS = 2
 
 app = Flask(__name__)
 CORS(
@@ -59,6 +60,11 @@ def convert():
 
     if not converter.is_youtube_url(url):
         return jsonify({"error": "Ce n'est pas un lien YouTube valide."}), 400
+
+    with converter.jobs_lock:
+        active = sum(1 for job in converter.jobs.values() if job["status"] in ("downloading", "converting"))
+    if active >= MAX_CONCURRENT_CONVERSIONS:
+        return jsonify({"error": "Trop de conversions en cours, reessayez dans quelques instants."}), 429
 
     job_id = converter.start_conversion(url, fmt)
     return jsonify({"job_id": job_id})
