@@ -1,7 +1,7 @@
 const IS_LOCAL =
   (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") &&
   window.location.port === "5000";
-const API_BASE = IS_LOCAL ? "" : "https://TON-SERVICE.onrender.com";
+const API_BASE = IS_LOCAL ? "" : "https://convertisseur-youtube-krhs.onrender.com";
 
 const passwordRow = document.getElementById("password-row");
 const passwordInput = document.getElementById("password-input");
