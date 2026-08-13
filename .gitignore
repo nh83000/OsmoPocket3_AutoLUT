@@ -8,3 +8,7 @@ __pycache__/
 downloads/
 .superpowers/
 .claude/
+desktop/backend/
+desktop/bin/
+desktop/dist/
+desktop/node_modules/

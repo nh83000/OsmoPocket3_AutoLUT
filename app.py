@@ -141,4 +141,10 @@ if __name__ == "__main__":
     check_autolut_build()
     check_convertisseur_static()
     converter.cleanup_old_downloads()
-    app.run(debug=True, port=5000)
+    # PyInstaller positionne sys.frozen=True dans l'executable empaquete.
+    # Le rechargement automatique de debug=True ne fonctionne pas correctement
+    # dans un binaire empaquete (il tente de relancer le script Python source,
+    # inexistant une fois empaquete) et fuiterait des traces d'erreur completes
+    # a l'utilisateur final -- desactive uniquement dans ce cas.
+    is_packaged = getattr(sys, "frozen", False)
+    app.run(debug=not is_packaged, port=5000)
