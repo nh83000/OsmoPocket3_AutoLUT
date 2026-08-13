@@ -12,3 +12,5 @@ desktop/backend/
 desktop/bin/
 desktop/dist/
 desktop/node_modules/
+desktop/.pyinstaller-work/
+desktop/app.spec
