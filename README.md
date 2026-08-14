@@ -88,3 +88,12 @@ Le Convertisseur peut aussi être accessible depuis la version publique GitHub P
 7. `npm run build` puis commit + push — GitHub Pages se redéploie automatiquement avec la bonne URL.
 
 **Limite du palier gratuit :** le service s'endort après 15 minutes d'inactivité ; la requête suivante prend 30 à 60 secondes de plus le temps qu'il se réveille. Normal, pas un bug.
+
+## Application de bureau (Windows/Mac)
+
+Un installeur autonome existe pour ne pas avoir à installer Python/Node.js/ffmpeg manuellement : voir la page [Releases](https://github.com/nh83000/OsmoPocket3_AutoLUT/releases) du repo.
+
+- **Windows** : lancer le `.exe` téléchargé, suivre l'installation.
+- **Mac** : lancer le `.dmg` téléchargé. Comme l'application n'est pas signée (pas de compte Apple Developer), macOS affichera un avertissement « développeur non identifié » au premier lancement — clic droit sur l'application → **Ouvrir**, confirmer. Cette étape n'est nécessaire qu'une seule fois.
+
+Cette version embarque tout ce qu'il faut (Python, ffmpeg, Node.js) — aucun prérequis à installer. Mentions de licence des binaires tiers embarqués : voir `desktop/THIRD-PARTY-NOTICES.md`. Pas de mise à jour automatique : télécharger un nouvel installeur pour les futures versions.
