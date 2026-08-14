@@ -11,3 +11,5 @@ Ce dossier (`desktop/bin/`) contient des binaires tiers téléchargés, volontai
 - `node` : depuis https://nodejs.org/dist/ (archive `node-vXX.X.X-darwin-x64.tar.gz` ou `-arm64` selon l'architecture cible, binaire `bin/node`)
 
 Ces téléchargements sont automatisés dans le workflow CI (`.github/workflows/build-desktop.yml`, Task 5 du plan) — cette procédure manuelle sert uniquement au développement/test local.
+
+Voir aussi `THIRD-PARTY-NOTICES.md` pour les mentions de licence requises par la distribution de ces binaires.
