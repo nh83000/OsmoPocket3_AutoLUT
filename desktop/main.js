@@ -50,7 +50,10 @@ function startBackend() {
 function killBackend() {
   if (!backendProcess) return;
   if (process.platform === "win32") {
-    spawn("taskkill", ["/pid", backendProcess.pid, "/t", "/f"]);
+    const killer = spawn("taskkill", ["/pid", backendProcess.pid, "/t", "/f"]);
+    killer.on("error", (err) => {
+      console.error("Echec de taskkill :", err);
+    });
   } else {
     backendProcess.kill();
   }
