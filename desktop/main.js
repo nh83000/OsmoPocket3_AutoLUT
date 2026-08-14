@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, dialog } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const http = require("http");
@@ -25,10 +25,15 @@ function bundledBinDir() {
   return path.join(__dirname, "bin", platformDir);
 }
 
+function backendCwd() {
+  return app.getPath("userData");
+}
+
 function startBackend() {
   const exePath = backendExecutablePath();
   const binDir = bundledBinDir();
   backendProcess = spawn(exePath, [], {
+    cwd: backendCwd(),
     env: {
       ...process.env,
       PATH: `${binDir}${path.delimiter}${process.env.PATH || ""}`,
@@ -42,12 +47,27 @@ function startBackend() {
   });
 }
 
+function killBackend() {
+  if (!backendProcess) return;
+  if (process.platform === "win32") {
+    spawn("taskkill", ["/pid", backendProcess.pid, "/t", "/f"]);
+  } else {
+    backendProcess.kill();
+  }
+  backendProcess = null;
+}
+
 function waitForServer(callback, attemptsLeft = 60) {
   http
     .get(SERVER_URL, () => callback())
     .on("error", () => {
       if (attemptsLeft <= 0) {
         console.error("Le serveur local n'a jamais repondu.");
+        dialog.showErrorBox(
+          "AutoLUT n'a pas pu demarrer",
+          "Le serveur local n'a pas repondu a temps. Reessayez de lancer l'application ; si le probleme persiste, verifiez qu'aucun autre programme n'utilise deja le port 5000."
+        );
+        app.quit();
         return;
       }
       setTimeout(() => waitForServer(callback, attemptsLeft - 1), 500);
@@ -72,10 +92,10 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  if (backendProcess) backendProcess.kill();
+  killBackend();
   app.quit();
 });
 
 app.on("before-quit", () => {
-  if (backendProcess) backendProcess.kill();
+  killBackend();
 });
