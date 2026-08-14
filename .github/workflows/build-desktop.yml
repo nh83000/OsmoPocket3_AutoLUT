@@ -1,0 +1,85 @@
+name: Build desktop app
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build AutoLUT (Vite)
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install backend Python deps
+        run: |
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Build backend with PyInstaller (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          pyinstaller app.py --name app --onedir --noconsole --distpath desktop/backend --workpath desktop/.pyinstaller-work --specpath desktop --add-data "${{ github.workspace }}/dist;dist" --add-data "${{ github.workspace }}/public/convertisseur;public/convertisseur"
+
+      - name: Build backend with PyInstaller (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          pyinstaller app.py --name app --onedir --noconsole --distpath desktop/backend --workpath desktop/.pyinstaller-work --specpath desktop --add-data "${{ github.workspace }}/dist:dist" --add-data "${{ github.workspace }}/public/convertisseur:public/convertisseur"
+
+      # Note : le cote source de --add-data doit etre un chemin absolu (github.workspace),
+      # pas relatif a la racine du repo -- PyInstaller resout les chemins relatifs par
+      # rapport a --specpath (desktop/), pas au dossier d'ou la commande est lancee.
+      # Decouvert en pratique lors de la Task 1 (execution locale).
+
+      - name: Download portable ffmpeg/Node.js (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p desktop/bin/win
+          curl -L -o ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+          unzip -j ffmpeg.zip "*/bin/ffmpeg.exe" -d desktop/bin/win
+          rm ffmpeg.zip
+          curl -L -o node.zip https://nodejs.org/dist/v20.18.0/node-v20.18.0-win-x64.zip
+          unzip -j node.zip "*/node.exe" -d desktop/bin/win
+          rm node.zip
+
+      - name: Download portable ffmpeg/Node.js (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p desktop/bin/mac
+          curl -L -o ffmpeg.zip https://evermeet.cx/ffmpeg/getrelease/zip
+          unzip -j ffmpeg.zip ffmpeg -d desktop/bin/mac
+          rm ffmpeg.zip
+          curl -L -o node.tar.gz https://nodejs.org/dist/v20.18.0/node-v20.18.0-darwin-x64.tar.gz
+          tar -xzf node.tar.gz --strip-components=2 -C desktop/bin/mac "*/bin/node"
+          rm node.tar.gz
+          chmod +x desktop/bin/mac/ffmpeg desktop/bin/mac/node
+
+      - name: Install Electron deps
+        working-directory: desktop
+        run: npm ci
+
+      - name: Build installer
+        working-directory: desktop
+        run: npm run dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+          if-no-files-found: ignore
