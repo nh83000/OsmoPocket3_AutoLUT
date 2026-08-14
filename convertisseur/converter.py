@@ -17,6 +17,9 @@ JS_RUNTIME_OPTS = {
     "remote_components": {"ejs:github"},
 }
 
+MAX_CONVERSION_ATTEMPTS = 3
+RETRY_DELAY_SECONDS = 3
+
 jobs = {}
 jobs_lock = threading.Lock()
 
@@ -142,42 +145,57 @@ def run_conversion(job_id, url, fmt):
             **JS_RUNTIME_OPTS,
         }
 
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            # info['ext']/info['filepath'] at the top level can be stale
-            # (they reflect the pre-postprocessing source format, e.g.
-            # "webm" instead of "mp3", or the merge target even when no
-            # merge actually happened). The per-file entries in
-            # requested_downloads are the ones yt-dlp itself mutates while
-            # downloading/postprocessing, so they reflect the true final
-            # extension and path on disk.
-            downloads = info.get("requested_downloads") or [info]
-            final_path = downloads[0].get("filepath") or ydl.prepare_filename(info)
+    # YouTube's anti-bot protection intermittently rejects the download
+    # step with a 403 even for a request that is identical, code- and
+    # environment-wise, to one that just succeeded. Retry a few times with
+    # a short delay before giving up and surfacing the error to the caller.
+    last_error = None
+    for attempt in range(1, MAX_CONVERSION_ATTEMPTS + 1):
+        with jobs_lock:
+            jobs[job_id]["progress"] = 0
+            jobs[job_id]["status"] = "downloading"
 
-            # Rename from the technical job-id-based name to the video's title
-            # once conversion succeeds; fall back to the technical name if
-            # sanitizing/renaming isn't possible (empty title, or a transient
-            # OS-level failure like a file lock).
-            sanitized_title = _sanitize_filename(info.get("title"))
-            if sanitized_title:
-                ext = os.path.splitext(final_path)[1]
-                target_path = os.path.join(DOWNLOAD_DIR, f"{sanitized_title}{ext}")
-                if os.path.exists(target_path):
-                    target_path = os.path.join(DOWNLOAD_DIR, f"{sanitized_title} ({job_id[:8]}){ext}")
-                try:
-                    os.replace(final_path, target_path)
-                    final_path = target_path
-                except OSError:
-                    pass
-        with jobs_lock:
-            jobs[job_id]["status"] = "done"
-            jobs[job_id]["progress"] = 100
-            jobs[job_id]["filename"] = os.path.basename(final_path)
-    except Exception as e:
-        with jobs_lock:
-            jobs[job_id]["status"] = "error"
-            jobs[job_id]["error_message"] = str(e)
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                # info['ext']/info['filepath'] at the top level can be stale
+                # (they reflect the pre-postprocessing source format, e.g.
+                # "webm" instead of "mp3", or the merge target even when no
+                # merge actually happened). The per-file entries in
+                # requested_downloads are the ones yt-dlp itself mutates while
+                # downloading/postprocessing, so they reflect the true final
+                # extension and path on disk.
+                downloads = info.get("requested_downloads") or [info]
+                final_path = downloads[0].get("filepath") or ydl.prepare_filename(info)
+
+                # Rename from the technical job-id-based name to the video's title
+                # once conversion succeeds; fall back to the technical name if
+                # sanitizing/renaming isn't possible (empty title, or a transient
+                # OS-level failure like a file lock).
+                sanitized_title = _sanitize_filename(info.get("title"))
+                if sanitized_title:
+                    ext = os.path.splitext(final_path)[1]
+                    target_path = os.path.join(DOWNLOAD_DIR, f"{sanitized_title}{ext}")
+                    if os.path.exists(target_path):
+                        target_path = os.path.join(DOWNLOAD_DIR, f"{sanitized_title} ({job_id[:8]}){ext}")
+                    try:
+                        os.replace(final_path, target_path)
+                        final_path = target_path
+                    except OSError:
+                        pass
+            with jobs_lock:
+                jobs[job_id]["status"] = "done"
+                jobs[job_id]["progress"] = 100
+                jobs[job_id]["filename"] = os.path.basename(final_path)
+            return
+        except Exception as e:
+            last_error = e
+            if attempt < MAX_CONVERSION_ATTEMPTS:
+                time.sleep(RETRY_DELAY_SECONDS)
+
+    with jobs_lock:
+        jobs[job_id]["status"] = "error"
+        jobs[job_id]["error_message"] = str(last_error)
 
 
 def start_conversion(url, fmt):
