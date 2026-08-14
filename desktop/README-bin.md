@@ -3,7 +3,7 @@
 Ce dossier (`desktop/bin/`) contient des binaires tiers téléchargés, volontairement exclus de git (trop volumineux). Pour les régénérer :
 
 ## Windows (`bin/win/`)
-- `ffmpeg.exe` : depuis https://www.gyan.dev/ffmpeg/builds/ (build "essentials", licence GPL/LGPL selon la build)
+- `ffmpeg.exe` : depuis https://www.gyan.dev/ffmpeg/builds/ (build "essentials", licence GPL v3 — voir `THIRD-PARTY-NOTICES.md`)
 - `node.exe` : depuis https://nodejs.org/dist/ (archive `node-vXX.X.X-win-x64.zip`, binaire `node.exe` à la racine de l'archive)
 
 ## macOS (`bin/mac/`)
