@@ -4,9 +4,29 @@
   "private": true,
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder"
   },
   "devDependencies": {
-    "electron": "^31.0.0"
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.nh83000.autolut",
+    "productName": "AutoLUT",
+    "directories": {
+      "output": "dist"
+    },
+    "extraResources": [
+      { "from": "backend/app", "to": "backend" },
+      { "from": "bin/win", "to": "bin/win", "filter": ["**/*"] },
+      { "from": "bin/mac", "to": "bin/mac", "filter": ["**/*"] }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    }
   }
 }
