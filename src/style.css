@@ -446,11 +446,45 @@ body {
   background: var(--color-neutral-bg);
 }
 
+/* Barre segmentée façon VU-mètre, superposée sur la valeur remplie */
 .queue-item__progress {
   width: 100%;
   margin-top: 0.5rem;
-  height: 6px;
-  accent-color: var(--color-accent);
+  height: 8px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  border-radius: var(--radius);
+}
+
+.queue-item__progress::-webkit-progress-bar {
+  background: var(--color-neutral-bg);
+  border-radius: var(--radius);
+}
+
+.queue-item__progress::-webkit-progress-value {
+  background-color: var(--color-accent);
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--color-bg) 0,
+    var(--color-bg) 2px,
+    transparent 2px,
+    transparent 9px
+  );
+  border-radius: var(--radius);
+  transition: width 0.3s ease;
+}
+
+.queue-item__progress::-moz-progress-bar {
+  background-color: var(--color-accent);
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--color-bg) 0,
+    var(--color-bg) 2px,
+    transparent 2px,
+    transparent 9px
+  );
+  border-radius: var(--radius);
 }
 
 .badge {
