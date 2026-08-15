@@ -1,13 +1,37 @@
 :root {
-  --bg-start: #3a1c1c;
-  --bg-mid: #7a2e2e;
-  --bg-end: #c05621;
-  --accent-start: #f59e0b;
-  --accent-end: #ef4444;
-  --glass-bg: rgba(255, 255, 255, 0.10);
-  --glass-border: rgba(255, 255, 255, 0.25);
-  --text-primary: #ffffff;
-  --text-secondary: #f3d9cc;
+  color-scheme: light dark;
+  --color-bg: #eef1ee;
+  --color-surface: #ffffff;
+  --color-border: #d3d9d2;
+  --color-border-strong: #b9c2b6;
+  --color-field-bg: #f6f8f5;
+  --color-text: #1a231d;
+  --color-text-muted: #5c6a5f;
+  --color-accent: #2f6f5e;
+  --color-accent-text: #f2f7f4;
+  --color-error: #c0392b;
+  --color-error-bg: #fbe9e7;
+  --color-neutral-bg: #e4e9e2;
+  --radius: 3px;
+  --font: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+  --font-label: "Bahnschrift", "Arial Narrow", var(--font);
+  --font-data: ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #101513;
+    --color-surface: #171e1b;
+    --color-border: #26302a;
+    --color-border-strong: #34413a;
+    --color-field-bg: #1c2420;
+    --color-text: #e6ede9;
+    --color-text-muted: #8b9990;
+    --color-accent: #4fb89e;
+    --color-accent-text: #0d1f19;
+    --color-error-bg: #3a1512;
+    --color-neutral-bg: #1b2320;
+  }
 }
 
 * {
@@ -17,31 +41,58 @@
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: system-ui, sans-serif;
-  background: linear-gradient(135deg, var(--bg-start), var(--bg-mid) 45%, var(--bg-end) 100%);
+  font-family: var(--font);
+  background: var(--color-bg);
+  color: var(--color-text);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem 1rem;
 }
 
+/* --- Carte principale, coins en équerre façon viseur --- */
+
 .glass {
+  position: relative;
   width: 100%;
   max-width: 420px;
   padding: 2rem;
-  border-radius: 18px;
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 10px 34px rgba(40, 5, 0, 0.4);
+  border-radius: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.glass::before,
+.glass::after {
+  content: "";
+  position: absolute;
+  width: 0.7rem;
+  height: 0.7rem;
+  pointer-events: none;
+}
+
+.glass::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--color-accent);
+  border-left: 2px solid var(--color-accent);
+}
+
+.glass::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--color-accent);
+  border-right: 2px solid var(--color-accent);
 }
 
 h1 {
   margin: 0 0 1.5rem 0;
+  font-family: var(--font-label);
   font-size: 1.4rem;
   font-weight: 700;
-  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  color: var(--color-text);
 }
 
 .url-row {
@@ -55,23 +106,23 @@ h1 {
   min-width: 0;
   padding: 0.6rem 0.75rem;
   font-size: 0.95rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid var(--glass-border);
-  color: var(--text-primary);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
 }
 
 #url-input::placeholder {
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--color-text-muted);
 }
 
 #paste-button {
   width: 42px;
   flex-shrink: 0;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid var(--glass-border);
-  color: var(--text-primary);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
   font-size: 1rem;
   cursor: pointer;
 }
@@ -80,22 +131,27 @@ h1 {
   width: 100%;
   padding: 0.6rem;
   margin-bottom: 0.75rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: var(--text-secondary);
-  font-weight: 700;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
+  font-family: var(--font-label);
+  font-weight: 600;
   font-size: 0.9rem;
   cursor: pointer;
+}
+
+#verify-button:hover {
+  border-color: var(--color-accent);
 }
 
 .preview-card {
   display: flex;
   gap: 0.6rem;
   align-items: center;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
+  background: var(--color-field-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
   padding: 0.5rem;
   margin-bottom: 0.75rem;
 }
@@ -103,8 +159,8 @@ h1 {
 .preview-thumb {
   width: 80px;
   height: 45px;
-  border-radius: 6px;
-  background-color: #2a1410;
+  border-radius: var(--radius);
+  background-color: var(--color-neutral-bg);
   background-size: cover;
   background-position: center;
   flex-shrink: 0;
@@ -112,7 +168,7 @@ h1 {
 
 .preview-title {
   font-size: 0.85rem;
-  color: var(--text-secondary);
+  color: var(--color-text-muted);
   line-height: 1.3;
 }
 
@@ -137,36 +193,43 @@ h1 {
   display: block;
   text-align: center;
   padding: 0.55rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.10);
-  color: var(--text-secondary);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-field-bg);
+  color: var(--color-text-muted);
+  font-family: var(--font-label);
   font-weight: 600;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .format-option input:checked + span {
-  background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
-  color: #ffffff;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-text);
 }
 
 .format-option input:focus-visible + span {
-  outline: 2px solid var(--text-primary);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
 #convert-section button[type="submit"] {
   width: 100%;
   padding: 0.65rem;
-  border-radius: 9px;
-  border: none;
-  background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
-  color: #ffffff;
-  font-weight: 700;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  font-family: var(--font-label);
+  font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;
-  box-shadow: 0 4px 18px rgba(239, 68, 68, 0.4);
+}
+
+#convert-section button[type="submit"]:hover {
+  filter: brightness(1.08);
 }
 
 #status-area {
@@ -175,15 +238,15 @@ h1 {
 
 .progress-track {
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius);
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--color-neutral-bg);
 }
 
 .progress-fill {
   height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
+  border-radius: var(--radius);
+  background: var(--color-accent);
   transition: width 0.3s ease;
 }
 
@@ -191,8 +254,10 @@ h1 {
   display: flex;
   justify-content: space-between;
   margin-top: 0.4rem;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
+  font-family: var(--font-data);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
 }
 
 .success-state {
@@ -213,25 +278,27 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
-  box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.15);
+  background: var(--color-accent);
 }
 
 .check-circle svg {
   width: 22px;
   height: 22px;
+  stroke: var(--color-accent-text);
 }
 
 .success-title {
   margin: 0 0 0.25rem 0;
-  color: var(--text-primary);
+  font-family: var(--font-label);
+  color: var(--color-text);
   font-weight: 700;
   font-size: 0.95rem;
 }
 
 .success-filename {
   margin: 0 0 0.9rem 0;
-  color: var(--text-secondary);
+  color: var(--color-text-muted);
+  font-family: var(--font-data);
   font-size: 0.8rem;
   word-break: break-word;
 }
@@ -239,19 +306,20 @@ h1 {
 .download-btn {
   display: inline-block;
   padding: 0.55rem 1.3rem;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.95);
-  color: var(--bg-mid);
+  border-radius: var(--radius);
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  font-family: var(--font-label);
   font-weight: 700;
   font-size: 0.85rem;
   text-decoration: none;
 }
 
 .error {
-  color: #fca5a5;
-  background: rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
+  color: var(--color-error);
+  background: var(--color-error-bg);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius);
   padding: 0.6rem 0.75rem;
   font-size: 0.85rem;
   margin: 0;
@@ -264,10 +332,11 @@ h1 {
 .app-nav__link {
   display: inline-block;
   padding: 0.35rem 0.7rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid var(--glass-border);
-  color: var(--text-secondary);
+  border-radius: var(--radius);
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
+  font-family: var(--font-label);
   font-size: 0.8rem;
   font-weight: 600;
   text-decoration: none;
@@ -275,18 +344,18 @@ h1 {
 
 .app-nav__link:hover,
 .app-nav__link:focus-visible {
-  background: rgba(255, 255, 255, 0.2);
+  border-color: var(--color-accent);
   outline: none;
 }
 
 .app-nav__link:focus-visible {
-  outline: 2px solid var(--text-primary);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
 .password-gate__hint {
   margin: 0 0 0.75rem 0;
-  color: var(--text-secondary);
+  color: var(--color-text-muted);
   font-size: 0.85rem;
 }
 
@@ -301,24 +370,29 @@ h1 {
   min-width: 0;
   padding: 0.6rem 0.75rem;
   font-size: 0.95rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid var(--glass-border);
-  color: var(--text-primary);
+  border-radius: var(--radius);
+  background: var(--color-field-bg);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
 }
 
 .password-row input::placeholder {
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--color-text-muted);
 }
 
 #password-button {
   flex-shrink: 0;
   padding: 0.6rem 1rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: var(--text-secondary);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text);
+  font-family: var(--font-label);
   font-weight: 700;
   font-size: 0.9rem;
   cursor: pointer;
+}
+
+#password-button:hover {
+  border-color: var(--color-accent);
 }
