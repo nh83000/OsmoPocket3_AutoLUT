@@ -1,34 +1,42 @@
 :root {
   color-scheme: light dark;
-  --color-bg: #f5f5f7;
+  --color-bg: #eef1ee;
   --color-surface: #ffffff;
-  --color-border: #e2e2e6;
-  --color-text: #1a1a1e;
-  --color-text-muted: #68686f;
-  --color-accent: #4a90d9;
-  --color-accent-text: #ffffff;
+  --color-border: #d3d9d2;
+  --color-border-strong: #b9c2b6;
+  --color-field-bg: #f6f8f5;
+  --color-text: #1a231d;
+  --color-text-muted: #5c6a5f;
+  --color-accent: #2f6f5e;
+  --color-accent-text: #f2f7f4;
   --color-success: #1e8e50;
   --color-success-bg: #e5f6ec;
   --color-error: #c0392b;
   --color-error-bg: #fbe9e7;
   --color-warning: #b06a00;
   --color-warning-bg: #fff2e0;
-  --color-neutral-bg: #ececef;
-  --radius: 10px;
-  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-neutral-bg: #e4e9e2;
+  --radius: 3px;
+  --font: ui-sans-serif, "Segoe UI", system-ui, sans-serif;
+  --font-label: "Bahnschrift", "Arial Narrow", var(--font);
+  --font-data: ui-monospace, "Cascadia Code", "SFMono-Regular", Menlo, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #17171a;
-    --color-surface: #201f23;
-    --color-border: #34333a;
-    --color-text: #f1f1f3;
-    --color-text-muted: #9d9ca5;
+    --color-bg: #101513;
+    --color-surface: #171e1b;
+    --color-border: #26302a;
+    --color-border-strong: #34413a;
+    --color-field-bg: #1c2420;
+    --color-text: #e6ede9;
+    --color-text-muted: #8b9990;
+    --color-accent: #4fb89e;
+    --color-accent-text: #0d1f19;
     --color-success-bg: #103621;
     --color-error-bg: #3a1512;
     --color-warning-bg: #3a2a05;
-    --color-neutral-bg: #2b2a30;
+    --color-neutral-bg: #1b2320;
   }
 }
 
@@ -51,7 +59,9 @@ body {
 
 .app-header h1 {
   margin: 0 0 0.35rem;
+  font-family: var(--font-label);
   font-size: 1.5rem;
+  letter-spacing: -0.01em;
 }
 
 .app-header__subtitle {
@@ -74,12 +84,38 @@ body {
   display: inline-block;
 }
 
+/* --- Cartes d'étape, coins en équerre façon viseur --- */
+
 .step {
+  position: relative;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border-radius: 0;
   padding: 1.25rem 1.5rem 1.5rem;
   margin-bottom: 1.25rem;
+}
+
+.step::before,
+.step::after {
+  content: "";
+  position: absolute;
+  width: 0.7rem;
+  height: 0.7rem;
+  pointer-events: none;
+}
+
+.step::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid var(--color-accent);
+  border-left: 2px solid var(--color-accent);
+}
+
+.step::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid var(--color-accent);
+  border-right: 2px solid var(--color-accent);
 }
 
 .step__heading {
@@ -87,6 +123,7 @@ body {
   align-items: center;
   gap: 0.6rem;
   margin: 0 0 1rem;
+  font-family: var(--font-label);
   font-size: 1.05rem;
 }
 
@@ -96,9 +133,10 @@ body {
   justify-content: center;
   width: 1.6rem;
   height: 1.6rem;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--color-accent);
   color: var(--color-accent-text);
+  font-family: var(--font-data);
   font-size: 0.85rem;
   font-weight: 600;
   flex-shrink: 0;
@@ -108,11 +146,11 @@ body {
 
 .button {
   padding: 0.45rem 0.9rem;
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border-strong);
   background: var(--color-surface);
   color: var(--color-text);
-  font: inherit;
+  font-family: var(--font-label);
   font-size: 0.9rem;
   cursor: pointer;
 }
@@ -151,10 +189,11 @@ body {
   width: 100%;
   margin-bottom: 1rem;
   padding: 0.65rem 1.25rem;
-  border-radius: 8px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-accent);
   background: var(--color-accent);
   color: var(--color-accent-text);
+  font-family: var(--font-label);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -187,9 +226,9 @@ body {
   flex: 1;
   min-width: 14rem;
   padding: 0.45rem 0.6rem;
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-field-bg);
   color: var(--color-text);
   font: inherit;
 }
@@ -209,7 +248,9 @@ body {
 
 .lut-selector__intensity-label {
   flex-shrink: 0;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   color: var(--color-text-muted);
 }
 
@@ -222,8 +263,10 @@ body {
   flex-shrink: 0;
   min-width: 2.6rem;
   text-align: right;
+  font-family: var(--font-data);
   font-size: 0.85rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--color-text);
 }
 
@@ -235,8 +278,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
-  border: 2px dashed var(--color-border);
-  border-radius: var(--radius);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: 0;
   padding: 2rem 1rem;
   text-align: center;
   cursor: pointer;
@@ -262,7 +305,7 @@ body {
 
 .dropzone--active {
   border-color: var(--color-accent);
-  background: rgba(74, 144, 217, 0.08);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
 }
 
 /* --- Aperçu --- */
@@ -294,7 +337,7 @@ body {
 .preview-card__error {
   margin: 0 0 0.5rem;
   padding: 0.5rem 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--color-error-bg);
   color: var(--color-error);
   font-size: 0.85rem;
@@ -314,18 +357,18 @@ body {
 
 .preview__caption {
   margin-bottom: 0.4rem;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
 }
 
 .preview__canvas {
   display: block;
   width: 100%;
   max-width: 100%;
-  border-radius: 6px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-border);
 }
 
@@ -356,7 +399,7 @@ body {
   display: block;
   width: 100%;
   margin-top: 0.6rem;
-  border-radius: 6px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-border);
   background: #000;
 }
@@ -391,7 +434,7 @@ body {
   text-overflow: ellipsis;
   padding: 0.3rem 0.5rem;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: transparent;
   font: inherit;
   color: inherit;
@@ -413,9 +456,12 @@ body {
 .badge {
   flex-shrink: 0;
   padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  font-size: 0.78rem;
+  border-radius: var(--radius);
+  font-family: var(--font-label);
+  font-size: 0.72rem;
   font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   white-space: nowrap;
   background: var(--color-neutral-bg);
   color: var(--color-text-muted);
@@ -427,7 +473,7 @@ body {
 }
 
 .badge--processing {
-  background: rgba(74, 144, 217, 0.15);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
   color: var(--color-accent);
 }
 
@@ -444,7 +490,7 @@ body {
 .processing-warning {
   margin: -0.5rem 0 1rem;
   padding: 0.5rem 0.7rem;
-  border-radius: 6px;
+  border-radius: var(--radius);
   background: var(--color-warning-bg);
   color: var(--color-warning);
   font-size: 0.85rem;
